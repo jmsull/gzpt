@@ -1,0 +1,18 @@
+Metadata-Version: 2.1
+Name: gzpt
+Version: 0.1
+Summary: Hybrid Analytic Model for Galaxy Power Spectrum
+Home-page: https://github.com/jmsull/gzpt
+Author: James M Sullivan
+Author-email: jmsullivan@berkeley.edu
+License: MIT
+Description: UNKNOWN
+Keywords: cosmology
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Topic :: Scientific/Engineering :: PhysicsTopic :: Scientific/Engineering :: Astronomy
+Requires-Python: >=3
+Provides-Extra: testing

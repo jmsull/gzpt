@@ -1,0 +1,7 @@
+wheel
+numpy
+scipy
+pyfftw
+
+[testing]
+numpy
