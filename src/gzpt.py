@@ -18,21 +18,28 @@ class hzpt:
 
     Methods
     ----------
-    __call__
-
+    __init__
 
     Examples
     --------
-    >>> k = np.logspace(-3, 3, num=60, endpoint=False)
-    >>> c = nbodykit.cosmology.Planck15
+    >>> k,plin = np.loatxt("my_linear_power_file.txt",unpack=True)
     >>> z = 0.5
-    >>> model = gzpt.hzpt(cosmo=c,z=z)
-    >>> Pmm = matter.Correlator(model,nmax=1).Power()(k)
-    >>> Pgg = tracers.AutoCorrelator(model,nmax=1).Power()(k)
-    >>> Pgm = tracers.CrossCorrelator(model,nmax=2).Power()(k)
-    >>>kdata,Pdata = np.loadtxt('some_Pk.dat',unpack=True)
-    >>>Pmm.Pfit(kdata,Pdata)
-    >>>Pmm_new = Pmm.Pfit(kdata,Pdata)
+    >>> model = gzpt.hzpt(k,plin,z)
+    >>> mm = matter.Correlator(model,nmax=1)
+    >>> gg = tracers.AutoCorrelator(model,nmax=1)
+    >>> gm = tracers.CrossCorrelator(model,nmax=2)
+
+    #3D stats
+    r = np.logspace(-1,3)
+    ximm = mm.Xi()(r)
+    Pgg = gg.Power()(k)
+
+    #Projected Stats
+    >>> z_source = 1
+    >>> DeltaSigma_gm = gm.Delta_Sigma(r,z_source) #using default top-hat pi-bins
+
+    #Analytic gradients (of non-cosmology parameters)
+    >>> wgg,grad_wgg = gg.wp(r,wantGrad=True)
 
     """
     #FOR NOW will only support single z, but can come back to this later

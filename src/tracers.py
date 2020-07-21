@@ -16,8 +16,6 @@ class AutoCorrelator(hzpt):
         self.nmax = len(self.params[2:])
         self.z = hzpt.z#redshift
 
-
-
         #making this up for right now - using lowZ nbar,bias made up will eventually put some fit function e.g. tinker
         self.useExc = useExc
         nbar_init,b1_init=
