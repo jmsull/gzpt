@@ -144,7 +144,7 @@ class AutoCorrelator(hzpt):
 
             else:
                 if(wantGrad):
-                    bb,bbgrad = XiBB(r,self.params,nmax=self.nmax,wantGrad=True)
+                    bb,bbgrad = XiBB(r,pparams,nmax=self.nmax,wantGrad=True)
                     xic = b1**2 * (self.hzpt.Xi_zel(r) + bb)
                     xi_baldauf_d = exclusion*(1. + xic) - 1.
                     b1_grad = 2.*xic/b1
@@ -188,7 +188,7 @@ class AutoCorrelator(hzpt):
         else:
             xi = self.Xi(wantGrad=wantGrad)(r)
         wp = np.zeros(int(len(xi)/len(pi_bins)))
-        if(wantGrad): wp_grad=np.zeros((len(wp),self.nmax))
+        if(wantGrad): wp_grad=np.zeros((len(wp),len(self.params)))
 
         #sum over los direction in each bin
         for i in range(len(wp)-1):
@@ -277,7 +277,7 @@ class CrossCorrelator(hzpt):
         else:
             xi = self.Xi(wantGrad=wantGrad)(r)
         wp = np.zeros(int(len(xi)/len(pi_bins)))
-        if(wantGrad): wp_grad=np.zeros((len(wp),self.nmax))
+        if(wantGrad): wp_grad=np.zeros((len(wp),len(self.params)))
 
         #sum over los direction in each bin
         for i in range(len(wp)-1):
@@ -349,13 +349,13 @@ class CrossCorrelator(hzpt):
             I[i] = term1 + term2 + term3
             if(wantGrad):
                 #just constants and sums
-                ig_grad = rr*rhom_zl*grad_wpgm[:i]
+                ig_grad = rhom_zl*(grad_wpgm[:i].T*rr).T
                 term1_grad = (1./p**2)*np.trapz(ig,x=rr,axis=0)
-                term2_grad = -rhom_zl*grad_wpgm[:i]
-                I_grad[i] = term1_grad+term2_grad
+                term2_grad = -rhom_zl*grad_wpgm[i]
+                I_grad_hzpt[i] = term1_grad+term2_grad
                 I_grad_PM[i] = 1/p**2
         if(wantGrad):
-            grad_DS_pm = np.concatenate([I_grad,I_grad_PM],axis=1)
+            grad_DS = np.concatenate([I_grad_hzpt,np.atleast_2d(I_grad_PM).T],axis=1)
             return rp,I*inv_Sigma_crit(Ds,Dl,zl), grad_DS
         else:
             return rp,I*inv_Sigma_crit(Ds,Dl,zl)

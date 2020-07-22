@@ -45,4 +45,14 @@ def test_gradients_exist():
     "tracer.AutoCorrelator.Power gradient does not exist"
     assert ~np.any(np.isnan(xitt_grad)), \
     "tracer.AutoCorrelator.Xi gradient does not exist"
+
+    #projected statistics
+    rpwp,wpgg,wpgg_grad = ttno.wp(rtest,wantGrad=True)
+    #made up test values for DS
+    rpDS,DSgm,DSgm_grad = tm.Delta_Sigma(rtest,12,1e3,.8e3,1,3e11,wantGrad=True)
+    assert ~np.any(np.isnan(wpgg_grad)), \
+    "tracer.AutoCorrelator.wp gradient does not exist"
+    assert ~np.any(np.isnan(DSgm_grad)), \
+    "tracer.CrossCorrelator.DS gradient does not exist"
+
     return None
