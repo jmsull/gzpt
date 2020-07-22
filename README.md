@@ -1,6 +1,8 @@
 # gzpt
 Hybrid Perturbation Theory + Halo Model 2-point statistics
 
+[![Build Status](https://travis-ci.com/jmsull/gzpt.svg?token=qyXyxSxrxC9pHePgsUAV&branch=master)](https://travis-ci.com/jmsull/gzpt)
+
 ## Installation
 Using pip:
 ```
