@@ -2,7 +2,25 @@ import numpy as np
 "The broadband function"
 
 def PBB(k,params,nmax=1,wantGrad=False):
-    '''Pade Power'''
+    '''Pade Power
+    Parameters:
+    ----------
+    k: array
+        wavenumbers
+    params: list
+        hzpt parameters, floats
+    nmax: int, optional
+        order of Pade expansion
+    wantGrad: boolean, optional
+        whether to return function or (function,grad)
+    Returns:
+    ---------
+    array (of size k)
+        broadband function value
+    tuple of arrays, optional
+        broadband function value and gradient wrt hzpt parameters.
+
+    '''
 
     if(nmax==0):
         A0,R = params
@@ -53,7 +71,26 @@ def PBB(k,params,nmax=1,wantGrad=False):
 
 
 def XiBB(r,params,nmax=0,wantGrad=False):
-    '''Pade Power FT'''
+    '''Pade Correlation Function
+    Parameters:
+    ----------
+    r: array
+        scale
+    params: list
+        hzpt parameters, floats
+    nmax: int, optional
+        order of Pade expansion
+    wantGrad: boolean, optional
+        whether to return function or (function,grad)
+    Returns:
+    ---------
+    array (of size k)
+        broadband function value
+    tuple of arrays, optional
+        broadband function value and gradient wrt hzpt parameters.
+
+    '''
+
     if(nmax==0):
         A0,R = params
         R1h,R1sq,R2h=None,None,None
@@ -89,22 +126,20 @@ def XiBB(r,params,nmax=0,wantGrad=False):
 
     def gradient(r,A0,R,R1h,R1sq,R2h):
         A_grad = - F2_comp(r,R) * pade2(r,R,R1h,R1sq,R2h)
-        R2,R3,R4,R5,R6 = R**2, R**3, R**4, R**5,R**6
-        R1h2,R1h3,R1h4,R1h5,R1h6, R1h7,R1h8 = R1h**2, R1h**3, R1h**4, R1h**5, R1h**6, R1h**7, R1h**8
-        R2h2,R2h3,R2h4,R2h5,R2h8 = R2h**2, R2h**3, R2h**4, R2h**5, R2h**8
         F_comp_R_grad = -A0 * (r - 2.*R)/R**2 *F2_comp(r,R)
+
         if(nmax==0):
             R_grad = F_comp_grad
             return np.array([A_grad,R_grad])
         if(nmax==1):
-            R_num = A0*np.exp(-r/R1h)*(-2.*R**3
-                                       + np.exp(r*(1/R1h - 1/R))*(2*R**3
-                                                                  +r*(R1h2 - R2))
-                                      )
+            R2,R1h2,R1h4 = R**2,R1h**2,R1h**4
+            R_num = -A0*np.exp(-r/R1h)*(2.*R**3 *(-1. + np.exp(r*(1/R - 1/R1h)))
+                                        +r*(R2 - R1h2)
+                                       )
             R_denom = 4.*np.pi*(R**3 - R*R1h2)**2
             R_grad = R_num/R_denom
-            R1h_num = A0*np.exp(-r/R1h)*(-2.*R1h**5 *np.exp(r*(1/R1h - 1/R))
-                                         +R2 *(-2.*R2 *R1h
+            R1h_num = A0*np.exp(-r/R1h)*(-2.*R1h**5 *np.exp(r*(1/R - 1/R1h))
+                                         *R2 *(-2.*R2 *R1h
                                                  +4.*R1h**3
                                                  +r*(R-R1h)*(R+R1h)
                                                 )
@@ -116,14 +151,18 @@ def XiBB(r,params,nmax=0,wantGrad=False):
             "Chain rule for this very long expression"
             """TODO:- should make it so don't need to run this twice - probably refactor the gradient into the actual function, turn into func+jac"""
             #setup
-            pre = 1/(1 -(R1h/R)**2 +(R2h/R)**4)
-            S = np.sqrt(R1h**4 - 4*R2h**4)
-            A = (1/(2*R2h**4 *S))*(R**2 *(-2*R2h**4 +R1sq *(R1h**2 -S)) + R2h**4 *(R1h**2 -S) + R1sq *(-R1h**4 +2*R2h**4 + R1h**2 *S))
-            B = -(1/(2*R2h**4 *S))*(R2h**4 *(R1h**2 + S) - R1sq *(R1h**4 - 2*R2h**4 +R1h**2 *S) + R**2 *(-2*R2h**4 + R1sq *(R1h**2 + S)))
+            R2,R3,R4,R5,R6 = R**2, R**3, R**4, R**5,R**6
+            R1h2,R1h3,R1h4,R1h5,R1h6, R1h7,R1h8 = R1h**2, R1h**3, R1h**4, R1h**5, R1h**6, R1h**7, R1h**8
+            R2h2,R2h3,R2h4,R2h5,R2h8 = R2h**2, R2h**3, R2h**4, R2h**5, R2h**8
 
-            T1 = 1- R1sq*(1/R)**2
-            EA = np.exp(r*(1/R - (1/R2h**2)*np.sqrt((R1h**2 - S)/2)))
-            EB = np.exp(r*(1/R - (1/R2h**2)*np.sqrt((R1h**2 + S)/2)))
+            pre = 1/(1 -(R1h2/R2) +(R2h4/R4))
+            S = np.sqrt(R1h4 - 4*R2h4)
+            A = (1/(2*R2h4 *S))*(R2 *(-2*R2h4 +R1sq *(R1h2 -S)) + R2h4 *(R1h2 -S) + R1sq *(-R1h4 +2*R2h4 + R1h2 *S))
+            B = -(1/(2*R2h4 *S))*(R2h4 *(R1h**2 + S) - R1sq *(R1h4 - 2*R2h4 +R1h2 *S) + R2 *(-2*R2h4 + R1sq *(R1h2 + S)))
+
+            T1 = 1- R1sq/R2
+            EA = np.exp(r*(1/R - (1/R2h2)*np.sqrt((R1h2- S)/2)))
+            EB = np.exp(r*(1/R - (1/R2h2)*np.sqrt((R1h2 + S)/2)))
             T2 = A*EA
             T3 = B*EB
 
@@ -138,7 +177,7 @@ def XiBB(r,params,nmax=0,wantGrad=False):
             T3_R_grad = B_R_grad*EB + B*EB_R_grad
             BB_R_grad = pre_R_grad*(T1+T2+T3) + pre*(T1_R_grad + T2_R_grad + T3_R_grad)
 
-            R_grad = F_comp_R_grad*pade2(r,R,R1h,R1sq) + (-A0*F_comp_R_grad)*BB_R_grad
+            R_grad = F_comp_R_grad*pade2(r,R,R1h,R1sq,R2h) + (-A0*F_comp_R_grad)*BB_R_grad
 
             #R1h
             pre_R1h_grad = (2.*R6*R1h)/(R4 - R2*R1h2 + R2h4)**2

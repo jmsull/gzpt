@@ -1,4 +1,4 @@
-"""Compute zeldovich approximation
+"""Compute 2pt stats in zeldovich approximation
 
 """
 #imports
@@ -9,41 +9,36 @@ from scipy.special import loggamma
 from scipy.interpolate import interp1d
 import numpy as np
 
-#class ZA(gzpt):
-#    "Inherit PLin from gzpt object"
-
-
-def wrap_za(r,k,plin):
-    tcleft = CLEFT(k,plin)
-    tcleft.make_ptable()
-    _,pza = tcleft.pktable.T #evaluated at k
-    xiza = tcleft.compute_xi_real(r)
-    return pza, xiza
-
-def PZel(k,cosmo,z):
-
-def XiZel(k,cosmo,z):
-
-
-
-#loginterp - use 9th order FD derivative to find effective power law index and use that power law for extrap
 def loginterp(x, y, yint = None, side = "both", lorder = 9, rorder = 9, lp = 1, rp = -1,
               ldx = 1e-6, rdx = 1e-6):
     '''
     Extrapolate function by evaluating a log-index of left & right side.
+    Use 9th order FD derivative to find effective power law index and use that power law for extrapolation.
     From Chirag Modi's CLEFT code at
     https://github.com/modichirag/CLEFT/blob/master/qfuncpool.py
     The warning for divergent power laws on both ends is turned off.
 
-    Input: x, array of abscissa values
-    y, array of size len(x) of funtion values
-    yint, optional interpolator callable
-    side, optional, one of l,r,both edge to extrapolate
-    lorder,rorder, optional, order of FD derivative evalauted at edges
-    lp,rp, optional, assumes first and last elements of array used for extrap
-    lidx,ridx, optionalFD epsilon value
+    Parameters:
+    -----------
+    x: array
+        abscissa values
+    y: array
+        funtion values
+    yint: callable,optional
+        interpolator callable
+    side: string, optional:
+        one of 'l','r',or 'both' - edge to extrapolate
+    lorder,rorder: int, optional
+        left and right order of FD derivative evalauted at edges
+    lp,rp: int,optional
+        left and right extrap indices, assumes first and last elements
+    lidx,ridx: float,optional
+        left and right FD epsilon value
 
-    Output: yint2 callable interpolated univariate spline over the extrapolated range
+    Returns:
+    -----------
+    callable
+        interpolated univariate spline over the extrapolated range
     '''
     if yint is None:
         yint = interpolate(x, y, k = 5)
@@ -76,10 +71,10 @@ def loginterp(x, y, yint = None, side = "both", lorder = 9, rorder = 9, lp = 1, 
 
     return yint2
 
-#spherical bessel functions
-#with FFTW option added
 class SphericalBesselTransform:
     '''
+    Spherical bessel function class with FFTW option added. Based on Stephen Chen's velocileptor's (https://github.com/sfschen/velocileptors) version of Chirag Modi's CLEFT code (https://github.com/modichirag/CLEFT).
+
     Class to perform spherical bessel transforms via FFTLog for a given set of qs, ie.
     the untransformed coordinate, up to a given order L in bessel functions (j_l for l
     less than or equal to L. The point is to save time by evaluating the Mellin transforms
@@ -96,16 +91,24 @@ class SphericalBesselTransform:
     def __init__(self, qs, L=15, ncol = 1, low_ring=True, fourier=False, threads=1,
                  import_wisdom=False, wisdom_file='./fftw_wisdom.npy',useFFTW=True):
         '''
-        Input:
-        qs, array of abscissa pts
-        L, this is the maximum order in ell used for the angular sum used to compute P_ZA as 1d integrals
-        ncol, used to compute multiple transforms at once for different biasing terms, for za will be 1
-        low_ring, whether to remove ringing
-        fourier, if true assume pi factor for an integral in fourier space
-        wisdom, saved setup for the fftw to reduce overhead
-        useFFTW, whether to use pyfftw or numpy ffts
-
-        Output
+        Parameters:
+        ---------
+        qs: array,float
+            Wavenumber abscissa pts
+        L: int,optional
+            Maximum order in \ell used for the angular sum used to compute P_ZA as 1d integrals (Schneider & Bartelmann 1995)
+        ncol: int,optional
+            Used to compute multiple transforms at once for different biasing terms, for za will be 1
+        low_ring: boolean, optional
+            Whether to apply lowring condition (force continuity when folding period, https://jila.colorado.edu/~ajsh/FFTLog/#lowring)
+        fourier: boolean,optional
+            If true assume pi factor for an integral in fourier space
+        import_wisdom: boolean, optional
+            Whether to use saved setup for the fftw to reduce overhead
+        wisdom_file: string, optional
+            The filename for the above
+        useFFTW: boolean, optional
+            Whether to use pyfftw (default) or numpy ffts
         '''
         # numerical factor of sqrt(pi) in the Mellin transform
         # if doing integral in fourier space get in addition a factor of 2 pi / (2pi)^3
@@ -152,6 +155,7 @@ class SphericalBesselTransform:
         ms = np.arange(0, self.N//2+1)
         self.ydict = {}; self.udict = {}; self.qdict= {}
 
+        #This is a note for my own understanding (jms), remove it later
         #L is the number of orders to track through for bessel functions
         #mcfit only does 1 using the bessel function order of the kernel that is passed to it
         #here Chirag does this for the first L bessel functions, I suppose for convenience later?
@@ -184,11 +188,26 @@ class SphericalBesselTransform:
 
 
     def export_wisdom(self, wisdom_file='./fftw_wisdom.npy'):
+        '''Parameters:
+         ----------
+         wisdom_file: string,optional
+            Wisdom filename
+         '''
         np.save(wisdom_file, pyfftw.export_wisdom())
 
     def sph(self, nu, fq):
         '''
         The workhorse of the class. Spherical Hankel Transforms fq on coordinates self.q.
+        Parameters:
+        ----------
+        nu: int
+            Order of spherical bessel function
+        fq: array (float)
+            Values of function to transform
+        Returns:
+        ----------
+        (array (float), array (float))
+            Tuple of the (absissca, function) values in the transformed space
         '''
         q = self.qdict[nu]; y = self.ydict[nu] #pre-tabulated for nus we want
         useFFTW = self.useFFTW
@@ -208,14 +227,24 @@ class SphericalBesselTransform:
 
     def UK(self, nu, z):
         '''
-        The Mellin transform of the spherical bessel transform. - from mcfit, nu is order, z argument
+        The Mellin transform of the spherical bessel transform. - from mcfit
+        Parameters:
+        ----------
+        nu: int
+            Order of spherical bessel function
+        z: float
+            Argument
+        Returns:
+        ----------
+        array (float)
+            Spherical bessel kernel evaluated at z
         '''
         return self.sqrtpi * np.exp(np.log(2)*(z-2) + loggamma(0.5*(nu+z)) - loggamma(0.5*(3+nu-z)))
 
 #Qfunc for computing the power - tossing almost everything
 class QFuncFFT:
     '''
-       Chirag's notes.
+       Chirag's notes:
        Class to calculate all the functions of q, X(q), Y(q), U(q), xi(q) etc.
        as well as the one-loop terms Q_n(k), R_n(k) using FFTLog.
        Throughout we use the ``generalized correlation function'' notation of 1603.04405.
@@ -227,10 +256,17 @@ class QFuncFFT:
        the resulting speedup is unnecessary in this case.
 
     '''
-    def __init__(self, k, p, qv = None):#, oneloop = False, shear = False, low_ring=True, third_order=False):
-        '''This assumes L=5 (with lowring) for the angular evaluation '''
-
-
+    def __init__(self, k, p, qv = None):
+        '''This assumes L=5 (with lowring) for the angular evaluation
+        Parameters:
+        ----------
+        k: array (float)
+            Wavenumbers
+        p: array (float)
+            Power spectrum values
+        qv: array (float),optional
+            q values to use when computing the generalized correlation functions
+        '''
         self.k = k
         self.p = p
         if qv is None:
@@ -261,6 +297,16 @@ class QFuncFFT:
         '''
         Calculates the generalized correlation function xi_l_n (Schmittful et al 16), which is xi when l = n = 0
         If _int is None assume integrating the power spectrum.
+        Parameters:
+        ----------
+        l: int
+            Legendre expansion order
+        n: int
+            Power on q in the integrand
+        Returns:
+        ----------
+        array (float)
+            Xi_l_n evaluated at qv
         '''
         if _int is None:
             integrand = self.p * self.k**n
@@ -278,7 +324,7 @@ class QFuncFFT:
 #Stripped down CLEFT class
 class CLEFT:
     '''
-    Removing everything but linear
+    jms - Removing everything but linear
     Class to calculate power spectra up to one loop.
     Based on Chirag's code
     https://github.com/sfschen/velocileptors/blob/master/LPT/cleft_fftw.py
@@ -290,8 +336,29 @@ class CLEFT:
     '''
 
     def __init__(self, k, p, cutoff=10, jn=5, N = 2000, threads=1, extrap_min = -5, extrap_max = 3, import_wisdom=False, wisdom_file='wisdom.npy'):
+        '''
+        Parameters:
+        ----------
+        k: array (float)
+            Wavenumber array
+        p: array (float)
+            Power array
+        jn: int,optional
+            Maximum order in \ell used for the angular sum used to compute P_ZA as 1d integrals (Schneider & Bartelmann 1995)
+        N: int,optional
+            Number of points used in extrap abscissa array
+        threads: int,optional
+            Num threads passed to pyfftw
+        extrap_min: int,optional
+            Min in logk used in extrap array
+        extrap_max: int,optional
+            Max in logk used in extrap array
+        import_wisdom: boolean, optional
+            Whether to use saved setup for the fftw to reduce overhead
+        wisdom_file: string, optional
+            The filename for the above
 
-
+        '''
         self.N = N
         self.extrap_max = extrap_max
         self.extrap_min = extrap_min
@@ -339,7 +406,14 @@ class CLEFT:
     def p_integrals(self, k):
         '''
         Compute P(k) for a single k as a vector of all bias contributions.
-
+        Parameters:
+        ----------
+        k: array (float)
+            Wavenumber array
+        Returns:
+        ----------
+        array
+            ZA power
         '''
         ksq = k**2; kcu = k**3; k4 = k**4
         expon = np.exp(-0.5*ksq * (self.XYlin - self.sigma))
@@ -371,6 +445,17 @@ class CLEFT:
         Make a table of different terms of P(k) between a given
         'kmin', 'kmax' and for 'nk' equally spaced values in log10 of k
         This is the most time consuming part of the code.
+        Parameters:
+        ----------
+        kmin: float,optional
+            Min wavenumber
+        kmax: float,optional
+            Max wavenumber
+        nk: int,optional
+            Number of pts
+        Returns:
+        ----------
+        None
         '''
         self.pktable = np.zeros([nk, self.num_power_components+1]) # one column for ks
         kv = np.logspace(np.log10(kmin), np.log10(kmax), nk)
@@ -380,6 +465,13 @@ class CLEFT:
 
 
     def export_wisdom(self, wisdom_file='./wisdom.npy'):
+        """
+        Wrapper for the SBT class wisdom saving function
+        Parameters:
+        ----------
+        wisdom_file: string,optional
+            Filename for wisdom.
+        """
         self.sph.export_wisdom(wisdom_file=wisdom_file)
 
     #From Stephen's gsm model class, appropriated here for xiza since it is all I want
@@ -387,7 +479,7 @@ class CLEFT:
         '''
         Compute the real-space correlation function at rr.
         '''
-        kint = np.logspace(-5,3,4000)
+        #kint = np.logspace(-5,3,4000)
         plin = loginterp(self.k, self.p)(kint)
         # This is just the zeroth moment:
         kv   = self.pktable[:,0]
