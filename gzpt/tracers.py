@@ -249,7 +249,7 @@ class CrossCorrelator(hzpt):
                 xi = b1*(self.hzpt.Xi_zel(r) + bb)
                 b1_grad = xi/b1
                 return xi, np.hstack([np.atleast_2d(b1_grad).T, b1*bbgrad])
-            else: return b1*(self.hzpt.Xi_zel(r) + XiBB(r,self.params,nmax=self.nmax))
+            else: return b1*(self.hzpt.Xi_zel(r) + XiBB(r,pparams,nmax=self.nmax))
         return xi
 
 

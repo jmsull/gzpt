@@ -18,6 +18,7 @@ def find_version(path):
 setup(name='gzpt',
       version = find_version("gzpt/__init__.py"),
       description='Hybrid Analytic Model for Galaxy Power Spectrum',
+      long_description=long_description,
       url='https://github.com/jmsull/gzpt',
       author='James M Sullivan',
       author_email='jmsullivan@berkeley.edu',
@@ -35,6 +36,5 @@ setup(name='gzpt',
         'Intended Audience :: Science/Research',
         'License :: OSI Approved :: MIT License',
         'Topic :: Scientific/Engineering :: Physics'
-        'Topic :: Scientific/Engineering :: Astronomy'
         ],
       keywords='cosmology')

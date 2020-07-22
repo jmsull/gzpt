@@ -44,7 +44,7 @@ class hzpt:
     #FOR NOW will only support single z, but can come back to this later
     def __init__(self,klin,plin,z):
         #self.cosmo = cosmo
-        self.z = z
+        self.z = z #I think the z dependence is unnecessary...
         self.plin = loginterp(klin,plin) #interpolator
         #cache the necessary cosmo distance quantities for DS and shear (bin-independent) - later
         # self.chi_z = cosmo.comoving_distance
