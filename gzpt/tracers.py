@@ -196,6 +196,17 @@ class AutoCorrelator(hzpt):
             if(wantGrad): wp_grad[i] = 2* dpi * np.sum(grad_xi[i*len(pi_bins):(i+1)*len(pi_bins)])
         rp = r[::len(pi_bins)]
         #TODO: All of this branching is probably bad - come back and fix this
+        #fast check for bin spacing to return appropriate bin center values
+        #r[0] may be 0
+        btol=1e-2
+        if(abs((r[2]-r[1])-(r[3]-r[2]))<=btol):
+            #rp is currently of size len(wp)+1 and gives bin edges, here we make them the same size
+            rp = (rp[:-1]+rp[1:])/2
+        elif(abs(np.log10(r[2]/r[1]) -np.log10(r[3]/r[2])) <=btol):
+            rp = 10**(np.log10(rp[:-1]*rp[1:])/2)
+        else:
+            raise ValueError("Radial bins are not linear or log spaced. spacing is dr1={0:.2f}, dr2={1:.2f}".format(r[2]-r[1],r[2]-r[1]))
+
         if(wantGrad):
             return rp,wp,wp_grad
         else:
@@ -284,7 +295,17 @@ class CrossCorrelator(hzpt):
             wp[i] = 2* dpi * np.sum(xi[i*len(pi_bins):(i+1)*len(pi_bins)])
             if(wantGrad): wp_grad[i] = 2* dpi * np.sum(grad_xi[i*len(pi_bins):(i+1)*len(pi_bins)])
         rp = r[::len(pi_bins)]
-        #TODO: All of this branching is probably bad - come back and fix this
+
+        #fast check for bin spacing to return appropriate bin center values
+        #r[0] may be 0
+        btol=1e-2
+        if(abs((r[2]-r[1])-(r[3]-r[2]))<=btol):
+            #rp is currently of size len(wp)+1 and gives bin edges, here we make them the same size
+            rp = (rp[:-1]+rp[1:])/2
+        elif(abs(np.log10(r[2]/r[1]) -np.log10(r[3]/r[2])) <=btol):
+            rp = 10**(np.log10(rp[:-1]*rp[1:])/2)
+        else:
+            raise ValueError("Radial bins are not linear or log spaced. spacing is dr1={0:.2f}, dr2={1:.2f}".format(r[2]-r[1],r[2]-r[1]))
         if(wantGrad):
             return rp,wp,wp_grad
         else:
@@ -292,7 +313,7 @@ class CrossCorrelator(hzpt):
 
     def Delta_Sigma(self,r,S0, #PM
                     Ds,Dl,zl,rhom_zl, #background/bin-dependent quantities
-                    pi_bins=np.linspace(0,100,10,endpoint=False),rpMin=0.1,wantGrad=False):
+                    pi_bins=np.linspace(0,100,10,endpoint=False),rpMin=1.,wantGrad=False):
 
         """Delta Sigma GGL statistic. Lens redshift is assumed to be the CrossCorrelator attribute z.
         TODO: cosmology gradients?
@@ -313,6 +334,8 @@ class CrossCorrelator(hzpt):
             Mean matter density at lens redshift
         pi_bins: array (float),optional
             Array must be of size that divides evenly into r - projection window, tophat for now
+        rpMin: float,optional
+            Minimum scale to which model is trusted, below this activate point mass.
         wantGrad : boolean,optional
             Whether to return the function value, or the tuple (val,grad).
         Returns:
@@ -321,8 +344,8 @@ class CrossCorrelator(hzpt):
             projected radius rp, projected correlation function wp, gradient if wanted
         """
         def inv_Sigma_crit(Ds,Dl,zl):
-            c=3e5 #km/s
-            G=4.3e-9 #Mpc (km/s)**2 * M_sun
+            c=2.99792e5 #km/s
+            G=4.30071e-9 #Mpc (km/s)**2 * M_sun
             #Assume Ds>Dl
             #can come back to computing Ds, DL internally  after caching distances in gzpt object, for now require input
             if(Ds>Dl):

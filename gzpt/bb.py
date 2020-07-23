@@ -99,6 +99,8 @@ def XiBB(r,params,nmax=0,wantGrad=False):
         R1sq,R2h = None, None
     elif(nmax==2):
         A0,R,R1h,R1sq,R2h = params
+    else:
+        raise NotImplementedError("nmax>2 not supported for xi")
 
     def F2_comp(r,R):
         '''Exponential `compensation' - analytic fourier transform of F_comp'''

@@ -84,7 +84,7 @@ class Correlator(hzpt):
         else:
             xi = self.Xi(wantGrad=wantGrad)(r)
         wp = np.zeros(int(len(xi)/len(pi_bins)))
-        if(wantGrad): wp_grad=np.zeros((len(wp),self.nmax))
+        if(wantGrad): wp_grad=np.zeros((len(wp),len(self.params)))
 
         #sum over los direction in each bin
         for i in range(len(wp)-1):
