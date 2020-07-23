@@ -4,6 +4,7 @@ from gzpt.bb import *
 import numpy as np
 from numpy import inf
 from scipy.special import erf
+from scipy.interpolate import InterpolatedUnivariateSpline as ius
 
 class AutoCorrelator(hzpt):
     '''hzpt object provides:
@@ -311,7 +312,7 @@ class CrossCorrelator(hzpt):
         else:
             return rp,wp
 
-    def Delta_Sigma(self,r,S0, #PM
+    def Delta_Sigma(self,r,DS0, #PM
                     Ds,Dl,zl,rhom_zl, #background/bin-dependent quantities
                     pi_bins=np.linspace(0,100,10,endpoint=False),rpMin=1.,wantGrad=False):
 
@@ -322,7 +323,7 @@ class CrossCorrelator(hzpt):
         -----------
         r: array (float)
             3D abscissa values for xi
-        S0: float
+        DS0: float
             Point mass marginalization parameter for Delta Sigma (see Singh ++ 2018)
         Ds: float
             Comoving distance (flat) to source
@@ -345,30 +346,53 @@ class CrossCorrelator(hzpt):
         """
         def inv_Sigma_crit(Ds,Dl,zl):
             c=2.99792e5 #km/s
-            G=4.30071e-9 #Mpc (km/s)**2 * M_sun
+            G=4.30071e-9 #Mpc (km/s)**2 * M_sun^-1
             #Assume Ds>Dl
             #can come back to computing Ds, DL internally  after caching distances in gzpt object, for now require input
             if(Ds>Dl):
-                Dfactor = Dl*(Ds-Dl)/(Ds)
+                Dfactor = Dl*(Ds-Dl)/Ds #Mpc/h
             else:
                 Dfactor = 0.
-            pre = (1+zl)*(4*np.pi*G)/c**2
-            return pre*Dfactor
+            pre = (1+zl)*(4*np.pi*G)/c**2 #Mpc *Msun^-1
+            return pre*Dfactor # #Mpc^2 Msun^-1 h^-1, what we need to match units of Sigma
         if(wantGrad):
             rp,wpgm,grad_wpgm = self.wp(r,pi_bins=pi_bins,wantGrad=True)
         else:
             rp,wpgm = self.wp(r,pi_bins=pi_bins)
         #Using Sukhdeep 2018 eqn 29
-        I = np.zeros(len(rp))
+        #I = np.zeros(len(rp))
+        print(rp.shape,wpgm.shape)
+        cutmask = rp>=(rpMin-.01)
+        wpgm_cut = wpgm[cutmask] #we do not want to use scales in the integration less than r0
+        wp_s = ius(rp,wpgm,ext=2)
+        wpcut_s = ius(rp[cutmask],wpgm_cut,ext=2)
+        S0 = rpMin**2 * (DS0 + rhom_zl*wp_s(rpMin)) #compute Sigma_0 from Singh 18 eqn. 28
         if(wantGrad):
             I_grad_hzpt = np.zeros((len(rp),len(self.params)))
             I_grad_PM = np.zeros(len(rp))
-        for i,p in enumerate(rp):
-            rr = np.linspace(rpMin,p,len(wpgm[:i]))
-            ig = rr*rhom_zl*wpgm[:i]
-            term1 = (1./p**2)*np.trapz(ig,x=rr) #integral term
-            term2 = -rhom_zl*wpgm[i] #Sigma_gm
+        j=0
+        #print('rpcut',rp[cutmask])
+
+        rpint = np.logspace(np.log10(rp.min()),np.log10(rp.max()-0.01),100)
+        I = np.zeros(len(rpint))
+        I1,I2,I3 = np.zeros(len(rpint)),np.zeros(len(rpint)),np.zeros(len(rpint))
+        for i,p in enumerate(rpint):
+            if(p<=rpMin): #streamline this later
+                term1 = 0. #do not perform the integral over wpgm below rpMin
+                j+=1
+                term2 = 0.
+            else:
+                #maybe this is bad...replace with interpolators?
+                rr = np.linspace(rpMin,p,100)#len(wpgm_cut[:i-j]))
+                #print(rr)
+                #print("rr",rr)
+                ig = rr*rhom_zl*wpcut_s(rr)#wpgm_cut[:i-j]
+                term1 = (1./p**2)*np.trapz(ig,x=rr) #integral term
+            #term2 = -rhom_zl*wp_s(p)#wpgm[i] #Sigma_gm, Msun Mpc^-2 h
             term3 =  S0 *(1/p**2) #Sigma_0 ~Pm term
+            I1[i] = term1
+            I2[i] = term2
+            I3[i] = term3
             I[i] = term1 + term2 + term3
             if(wantGrad):
                 #just constants and sums
@@ -379,6 +403,7 @@ class CrossCorrelator(hzpt):
                 I_grad_PM[i] = 1/p**2
         if(wantGrad):
             grad_DS = np.concatenate([I_grad_hzpt,np.atleast_2d(I_grad_PM).T],axis=1)
-            return rp,I*inv_Sigma_crit(Ds,Dl,zl), grad_DS
+            return rp,I*inv_Sigma_crit(Ds,Dl,zl), grad_DS*inv_Sigma_crit(Ds,Dl,zl)
         else:
-            return rp,I*inv_Sigma_crit(Ds,Dl,zl)
+            return rpint,I#*inv_Sigma_crit(Ds,Dl,zl),I1*inv_Sigma_crit(Ds,Dl,zl),I2*inv_Sigma_crit(Ds,Dl,zl),I3*inv_Sigma_crit(Ds,Dl,zl),\
+            #inv_Sigma_crit(Ds,Dl,zl)#rp,I*inv_Sigma_crit(Ds,Dl,zl)
