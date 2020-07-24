@@ -5,6 +5,7 @@ import numpy as np
 from numpy import inf
 from scipy.special import erf
 from scipy.interpolate import InterpolatedUnivariateSpline as ius
+from scipy.integrate import cumtrapz
 
 class AutoCorrelator(hzpt):
     '''hzpt object provides:
@@ -313,7 +314,7 @@ class CrossCorrelator(hzpt):
             return rp,wp
 
     def Delta_Sigma(self,r,DS0, #PM
-                    Ds,Dl,zl,rhom_zl, #background/bin-dependent quantities
+                    Ds,Dl,zl,rhom, #background/bin-dependent quantities
                     pi_bins=np.linspace(0,100,10,endpoint=False),rpMin=1.,wantGrad=False):
 
         """Delta Sigma GGL statistic. Lens redshift is assumed to be the CrossCorrelator attribute z.
@@ -331,8 +332,8 @@ class CrossCorrelator(hzpt):
             Comoving distance (flat) to lens
         zl: float
             Lens redshift
-        rhom_zl: float
-            Mean matter density at lens redshift
+        rhom: float
+            Mean matter density at z=0, in Msun^1 pc^-2 h^1 (pc, NOT Mpc)
         pi_bins: array (float),optional
             Array must be of size that divides evenly into r - projection window, tophat for now
         rpMin: float,optional
@@ -344,66 +345,102 @@ class CrossCorrelator(hzpt):
         (array (float), array (float), [array (float)])
             projected radius rp, projected correlation function wp, gradient if wanted
         """
-        def inv_Sigma_crit(Ds,Dl,zl):
-            c=2.99792e5 #km/s
-            G=4.30071e-9 #Mpc (km/s)**2 * M_sun^-1
-            #Assume Ds>Dl
-            #can come back to computing Ds, DL internally  after caching distances in gzpt object, for now require input
-            if(Ds>Dl):
-                Dfactor = Dl*(Ds-Dl)/Ds #Mpc/h
-            else:
-                Dfactor = 0.
-            pre = (1+zl)*(4*np.pi*G)/c**2 #Mpc *Msun^-1
-            return pre*Dfactor # #Mpc^2 Msun^-1 h^-1, what we need to match units of Sigma
+        #FIXME: turns out do not actually need this (it works though)- we are not computing tangential shear...
+        # def inv_Sigma_crit(Ds,Dl,zl):
+        #     c=2.99792e5 #km/s
+        #     G=4.30071e-9 #Mpc (km/s)**2 * M_sun^-1
+        #     #Assume Ds>Dl
+        #     #can come back to computing Ds, DL internally  after caching distances in gzpt object, for now require input
+        #     if(Ds>Dl):
+        #         Dfactor = Dl*(Ds-Dl)/Ds #Mpc/h
+        #     else:
+        #         Dfactor = 0.
+        #     pre = (1+zl)*(4*np.pi*G)/c**2 #Mpc *Msun^-1
+        #     return pre*Dfactor # #Mpc^2 Msun^-1 h^-1, what we need to match units of Sigma
+
+
         if(wantGrad):
             rp,wpgm,grad_wpgm = self.wp(r,pi_bins=pi_bins,wantGrad=True)
         else:
             rp,wpgm = self.wp(r,pi_bins=pi_bins)
-        #Using Sukhdeep 2018 eqn 29
+            #test where we know the answer
+            #rp,_,_,wpgm,_,_,_,_,_,_,_,_ = np.loadtxt('/Users/jsull/tmp_cori_maintenence/mocks_sukhdeep/evol_mock/evol_DM1_r00.2_w.dat',unpack=True)
+        #Using Sukhdeep 2018 eqn 29 - there is a typo so add missing factor of 2
         #I = np.zeros(len(rp))
-        print(rp.shape,wpgm.shape)
-        cutmask = rp>=(rpMin-.01)
-        wpgm_cut = wpgm[cutmask] #we do not want to use scales in the integration less than r0
-        wp_s = ius(rp,wpgm,ext=2)
-        wpcut_s = ius(rp[cutmask],wpgm_cut,ext=2)
-        S0 = rpMin**2 * (DS0 + rhom_zl*wp_s(rpMin)) #compute Sigma_0 from Singh 18 eqn. 28
-        if(wantGrad):
-            I_grad_hzpt = np.zeros((len(rp),len(self.params)))
-            I_grad_PM = np.zeros(len(rp))
-        j=0
-        #print('rpcut',rp[cutmask])
+        # cutmask = rp>=(rpMin-.01)
+        # wpgm_cut = wpgm[cutmask] #we do not want to use scales in the integration less than r0
+        # wp_s = ius(rp,wpgm,ext=2)
+        # wpcut_s = ius(rp[cutmask],wpgm_cut,ext=2)
+        # S0 = rpMin**2 * (DS0 + rhom_zl*wp_s(rpMin))
+        #rp interpolation pts
+        rpint=np.logspace(np.log10(rp.min()),np.log10(rp.max()),1000) #FIXME probably not necessary to use 1000
 
-        rpint = np.logspace(np.log10(rp.min()),np.log10(rp.max()-0.01),100)
-        I = np.zeros(len(rpint))
-        I1,I2,I3 = np.zeros(len(rpint)),np.zeros(len(rpint)),np.zeros(len(rpint))
-        for i,p in enumerate(rpint):
-            if(p<=rpMin): #streamline this later
-                term1 = 0. #do not perform the integral over wpgm below rpMin
-                j+=1
-                term2 = 0.
-            else:
-                #maybe this is bad...replace with interpolators?
-                rr = np.linspace(rpMin,p,100)#len(wpgm_cut[:i-j]))
-                #print(rr)
-                #print("rr",rr)
-                ig = rr*rhom_zl*wpcut_s(rr)#wpgm_cut[:i-j]
-                term1 = (1./p**2)*np.trapz(ig,x=rr) #integral term
-            #term2 = -rhom_zl*wp_s(p)#wpgm[i] #Sigma_gm, Msun Mpc^-2 h
-            term3 =  S0 *(1/p**2) #Sigma_0 ~Pm term
-            I1[i] = term1
-            I2[i] = term2
-            I3[i] = term3
-            I[i] = term1 + term2 + term3
-            if(wantGrad):
-                #just constants and sums
-                ig_grad = rhom_zl*(grad_wpgm[:i].T*rr).T
-                term1_grad = (1./p**2)*np.trapz(ig,x=rr,axis=0)
-                term2_grad = -rhom_zl*grad_wpgm[i]
-                I_grad_hzpt[i] = term1_grad+term2_grad
-                I_grad_PM[i] = 1/p**2
+        if(wantGrad):
+            # I_grad_hzpt = np.zeros((len(rp),len(self.params)))
+            # I_grad_PM = np.zeros(len(rp))
+            I_grad_hzpt = np.zeros((len(rpint),len(self.params)))
+            I_grad_PM = np.zeros(len(rpint))
+
+        # rp_c = rp[rp>=rMin]
+        # wpgm_c = wpgm[rp>=rMin]
+        wint = np.interp(rpint,rp,wpgm)
+        rpint_c = rpint[rpint>=rpMin]
+        wint_c = wint[rpint>=rpMin]
+        s_int = rhom*np.interp(rpint,rp,wpgm)
+        s = rhom*wpgm
+        #s_c = rhom*wpgm_c
+        sint_c = rhom*wint_c
+        t1=np.zeros(len(rpint))
+        t1[rpint<rpMin] = 0.
+        t1[rpint>=rpMin] = (2./rpint_c**2)*cumtrapz(rpint_c*sint_c,x=rpint_c,initial=0)
+        t2 = -s_int
+        S0=np.interp(rpMin,rpint,s_int)
+        t3 = (rpMin/rpint)**2 * (DS0 + S0) #compute Sigma_0 from Singh 18 eqn. 30
+        DS=t1+t2+t3
+
+        if(wantGrad): #This probasbly wont work so come back and check it
+            #just constants and sums
+            grad_wpgm_int_c = np.zeros((len(rpint_c),grad_wpgm.shape[1]))
+            for i in range(grad_wpgm.shape[1]):
+                grad_wpgm_int[:,i] = np.interp(rpint,rp,grad_wpgm[:,i])
+                grad_wpgm_int_c[:,i] = grad_wpgm_int[:,i][rpint>=rpMin]
+                term1_grad[:,i] = (2./rpint**2)*cumtrapz(rpint_c*rhom*grad_wpgm_int_c,x=rpint_c,axis=0,initial=0)
+            term2_grad = -rhom*grad_wpgm
+            I_grad_hzpt = term1_grad+term2_grad
+            I_grad_PM = 1/rpint**2
+        # j=0
+        # rpint = np.logspace(np.log10(rp.min()),np.log10(rp.max()-0.01),100)
+        # I = np.zeros(len(rpint))
+        # I1,I2,I3 = np.zeros(len(rpint)),np.zeros(len(rpint)),np.zeros(len(rpint))
+        #
+        #
+        #
+        # for i,p in enumerate(rpint):
+        #     if(p<=rpMin): #streamline this later
+        #         term1 = 0. #do not perform the integral over wpgm below rpMin
+        #         j+=1
+        #     else:
+        #         #maybe this is bad...replace with interpolators?
+        #         rr = np.linspace(rpMin,p,100)#len(wpgm_cut[:i-j]))
+        #         ig = rr*rhom_zl*wpcut_s(rr)#wpgm_cut[:i-j]
+        #         term1 = (2./p**2)*np.trapz(ig,x=rr) #integral term
+        #     term2 = -rhom_zl*wp_s(p)#wpgm[i] #Sigma_gm, Msun Mpc^-2 h
+        #     term3 =  S0 *(1/p**2) #Sigma_0 ~Pm term
+        #     I1[i] = term1
+        #     I2[i] = term2
+        #     I3[i] = term3
+        #     I[i] = term1 + term2 + term3
+        #     if(wantGrad):
+        #         #just constants and sums
+        #         ig_grad = rhom_zl*(grad_wpgm[:i].T*rr).T
+        #         term1_grad = (2./p**2)*np.trapz(ig,x=rr,axis=0)
+        #         term2_grad = -rhom_zl*grad_wpgm[i]
+        #         I_grad_hzpt[i] = term1_grad+term2_grad
+        #         I_grad_PM[i] = 1/p**2
+
+
         if(wantGrad):
             grad_DS = np.concatenate([I_grad_hzpt,np.atleast_2d(I_grad_PM).T],axis=1)
-            return rp,I*inv_Sigma_crit(Ds,Dl,zl), grad_DS*inv_Sigma_crit(Ds,Dl,zl)
+            return rpint,DS,grad_DS
         else:
-            return rpint,I#*inv_Sigma_crit(Ds,Dl,zl),I1*inv_Sigma_crit(Ds,Dl,zl),I2*inv_Sigma_crit(Ds,Dl,zl),I3*inv_Sigma_crit(Ds,Dl,zl),\
-            #inv_Sigma_crit(Ds,Dl,zl)#rp,I*inv_Sigma_crit(Ds,Dl,zl)
+            return rpint,DS
