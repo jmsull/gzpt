@@ -270,7 +270,7 @@ class QFuncFFT:
         self.k = k
         self.p = p
         if qv is None:
-            self.qv = np.logspace(-5,5,2e4)
+            self.qv = np.logspace(-5,5,20000) #this seems like a lot?
         else:
             self.qv = qv
 
@@ -343,6 +343,8 @@ class CLEFT:
             Wavenumber array
         p: array (float)
             Power array
+        cutoff: float
+            k-scale of exponential suppression to allow for well-behaved FFT
         jn: int,optional
             Maximum order in \ell used for the angular sum used to compute P_ZA as 1d integrals (Schneider & Bartelmann 1995)
         N: int,optional
