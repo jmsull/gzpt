@@ -32,7 +32,7 @@ def PBB(k,params,nmax,wantGrad=False):
         #A0,R,R1h,R1sq,R2h = params
         A0,R,R1h,R1sq,R12 = params
         R2h = R1h/(np.sqrt(2)*R12) #R12 is R1h/R2h/sqrt(2) and is forced to be > 1
-        if(R12<.99) : raise ValueError("R12 must be less than 1. for physical values.")
+        if(R12<=.99) : raise ValueError("R12 must be greater than 1. for physical values.")
 
     def F_comp(k,R):
         """For now only Lorentzian compensation"""
@@ -111,7 +111,7 @@ def XiBB(r,params,nmax,wantGrad=False):
         #A0,R,R1h,R1sq,R2h = params
         A0,R,R1h,R1sq,R12 = params
         R2h = R1h/(np.sqrt(2)*R12) #R12 is R1h/R2h/sqrt(2) and is forced to be > 1
-        if(R12<.99) : raise ValueError("R12 must be less than 1. for physical values.")
+        if(R12<=.99) : raise ValueError("R12 must be greater than 1. for physical values.")
     else:
         raise NotImplementedError("nmax>2 not supported for xi")
 
