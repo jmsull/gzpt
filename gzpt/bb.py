@@ -31,7 +31,7 @@ def PBB(k,params,nmax,wantGrad=False):
     elif(nmax==2):
         #A0,R,R1h,R1sq,R2h = params
         A0,R,R1h,R1sq,R12 = params
-        R2h = R12*R1h #R12 is R1h/R2h and is forced to be > 1
+        R2h = R1h/(np.sqrt(2)*R12) #R12 is R1h/R2h/sqrt(2) and is forced to be > 1
         if(R12<.99) : raise ValueError("R12 must be less than 1. for physical values.")
 
     def F_comp(k,R):
@@ -64,8 +64,8 @@ def PBB(k,params,nmax,wantGrad=False):
             R2h_grad = -4*A0* k**4 * (1+k**2 * R1sq) *R2h**3 /(1 + k**2 * R1h**2 +k**4 *R2h**4)**2 * F_comp(k,R)
 
             #convert R2h_grad to R12_grad - R12 = \frac{R1h}{R2j} => \frac{}\partial(PBB(...,R2h))}{\partial{R12}} = grad_R2h * \frac{\partial{R2h}}{\partial{R12}}
-            #this last factor is chain_fac and is just \frac{-1*R1h}{R12^2} = \frac{-1*R2h^2}{R1h}
-            chain_fac = -R2h**2 /R1h
+            #this last factor is chain_fac and is just \frac{-1*R1h}{sqrt{2} R12^2} = \frac{-sqr{2}*R2h^2}{R1h}
+            chain_fac = -np.sqrt(2)*R2h**2 /R1h
             R12_grad = R2h_grad*chain_fac
 
             #return np.array([A_grad,R_grad,R1h_grad,R1sq_grad,R2h_grad])
@@ -110,7 +110,7 @@ def XiBB(r,params,nmax,wantGrad=False):
     elif(nmax==2):
         #A0,R,R1h,R1sq,R2h = params
         A0,R,R1h,R1sq,R12 = params
-        R2h = R1h/R12 #R12 is R1h/R2h and is forced to be > 1
+        R2h = R1h/(np.sqrt(2)*R12) #R12 is R1h/R2h/sqrt(2) and is forced to be > 1
         if(R12<.99) : raise ValueError("R12 must be less than 1. for physical values.")
     else:
         raise NotImplementedError("nmax>2 not supported for xi")
@@ -243,8 +243,7 @@ def XiBB(r,params,nmax,wantGrad=False):
             R2h_grad = (-A0*F_comp_R_grad)*BB_R2h_grad
 
             #see note for description of chain factor in PBB
-            chain_fac = -R2h**2 /R1h
-            R12_grad = R2h_grad*chain_fac
+            chain_fac = -np.sqrt(2)*R2h**2 /R1h
 
             #return np.array([A_grad,R_grad,R1h_grad,R1sq_grad,R2h_grad])
             return np.array([A_grad,R_grad,R1h_grad,R1sq_grad,R12_grad])
