@@ -56,7 +56,7 @@ class AutoCorrelator(hzpt):
                                      b1**2 * bb_grad])
                 return p,grad_p
             else:
-                return p
+                return 1/nbar + b1**2 * (self.hzpt.P_zel(k) + bb)
         return Pk
 
     '''EXCLUSION'''
@@ -167,7 +167,7 @@ class AutoCorrelator(hzpt):
         return xi
 
     '''Copying for now - will move projected statistics to another file later'''
-    def wp(self,rp,pi=np.linspace(0,100,10+1),wantGrad=False):
+    def wp(self,rp,pi=np.linspace(0,100,100+1),rMin=0.01,wantGrad=False):
         "FIXME: Lazy copy from AutoCorrelator - should make this function accessible by both. - general correlator class..."
         """Projected correlation function.
         Parameters:
@@ -184,23 +184,32 @@ class AutoCorrelator(hzpt):
             projected radius rp, projected correlation function wp, gradient if wanted
         """
 
-        dpi = pi[1]-pi[0] #bin width
-        #pi_e = pi+dpi/2 #bin edges
-        pi_pts = np.concatenate([-pi[::-1],pi[1:]]) #add negative points, now don't need factor of 2 in wp
-        #I think this might not strictly be what follows the text of Singh++16 but for the low-rp values need a point at pi=0
-        #O.w. will underestimate wp below r=5-10, another solution to this would be log binning pi but this is not done bc real bins I guess are linear
-
+        # dpi = pi[1]-pi[0] #bin width
+        # #pi_e = pi+dpi/2 #bin edges
+        # pi_pts = np.concatenate([-pi[::-1],pi[1:]]) #add negative points, now don't need factor of 2 in wp
+        # #I think this might not strictly be what follows the text of Singh++16 but for the low-rp values need a point at pi=0
+        # #O.w. will underestimate wp below r=5-10, another solution to this would be log binning pi but this is not done bc real bins I guess are linear
+        #
         if(wantGrad):
             wp_grad=np.zeros((len(wp),len(self.params)))
             xir,grad_xir = self.Xi(wantGrad=wantGrad)
         else:
             xir = self.Xi(wantGrad=wantGrad)
-        #given now rp = np.logspace(np.log10(r.min()),np.log10(r.max()),100)
+        # #given now rp = np.logspace(np.log10(r.min()),np.log10(r.max()),100)
+        # wp = np.zeros(len(rp))
+        # for i in range(len(wp)):
+        #     rev=np.sqrt(rp[i]**2 + pi_pts**2)
+        #     wp[i] = dpi * np.sum(xir(rev))
+        #     if(wantGrad): wp_grad[i] = dpi * np.sum(grad_xir(rev),axis=0) #not sure if this works
+        #
+        #wp - yet again
+        dpi = pi[1]-pi[0] #bin width
         wp = np.zeros(len(rp))
         for i in range(len(wp)):
-            rev=np.sqrt(rp[i]**2 + pi_pts**2)
-            wp[i] = dpi * np.sum(xir(rev))
-            if(wantGrad): wp_grad[i] = dpi * np.sum(grad_xir(rev),axis=0) #not sure if this works
+            rev=np.sqrt(rp[i]**2 + pi**2)
+            wp[i]= 2*ius(rev,xir(rev)/np.sqrt(1- (rp[i]/(rev+rMin))**2)).integral(rev.min(),rev.max())
+            if(wantGrad): wp_grad[i] =2*ius(rev,grad_xir(rev)/np.sqrt(1- (rp[i]/(rev+rMin))**2)).integral(rev.min(),rev.max())
+
 
         if(wantGrad):
             return wp,wp_grad
@@ -261,7 +270,7 @@ class CrossCorrelator(hzpt):
 
 
     '''Copying for now - will move projected statistics to another file later'''
-    def wp(self,rp,pi=np.linspace(0,100,10+1),wantGrad=False):
+    def wp(self,rp,pi=np.linspace(0,100,100+1),rMin=0.1,wantGrad=False):
         "FIXME: Lazy copy from AutoCorrelator - should make this function accessible by both. - general correlator class..."
         """Projected correlation function.
         Parameters:
@@ -278,23 +287,37 @@ class CrossCorrelator(hzpt):
             projected radius rp, projected correlation function wp, gradient if wanted
         """
 
-        dpi = pi[1]-pi[0] #bin width
+        #dpi = pi[1]-pi[0] #bin width
         #pi_e = pi+dpi/2 #bin edges
-        pi_pts = np.concatenate([-pi[::-1],pi[1:]]) #add negative points, now don't need factor of 2 in wp
+        #pi_pts = np.concatenate([-pi[::-1],pi[1:]]) #add negative points, now don't need factor of 2 in wp
         #I think this might not strictly be what follows the text of Singh++16 but for the low-rp values need a point at pi=0
         #O.w. will underestimate wp below r=5-10, another solution to this would be log binning pi but this is not done bc real bins I guess are linear
 
         if(wantGrad):
-            wp_grad=np.zeros((len(wp),len(self.params)))
+            wp_grad=np.zeros((len(rp),len(self.params)))
             xir,grad_xir = self.Xi(wantGrad=wantGrad)
         else:
             xir = self.Xi(wantGrad=wantGrad)
-        #given now rp = np.logspace(np.log10(r.min()),np.log10(r.max()),100)
+        # #given now rp = np.logspace(np.log10(r.min()),np.log10(r.max()),100)
+        # wp = np.zeros(len(rp))
+        # for i in range(len(wp)):
+        #     rev=np.sqrt(rp[i]**2 + pi_pts**2)
+        #     wp[i] = dpi * np.sum(xir(rev))
+        #     if(wantGrad): wp_grad[i] = dpi * np.sum(grad_xir(rev),axis=0) #not sure if this works
+        #
+        # if(wantGrad):
+        #     return wp,wp_grad
+        # else:
+        #     return wp
+
+        #wp - yet again
+        dpi = pi[1]-pi[0] #bin width
         wp = np.zeros(len(rp))
         for i in range(len(wp)):
-            rev=np.sqrt(rp[i]**2 + pi_pts**2)
-            wp[i] = dpi * np.sum(xir(rev))
-            if(wantGrad): wp_grad[i] = dpi * np.sum(grad_xir(rev),axis=0) #not sure if this works
+            rev=np.sqrt(rp[i]**2 + pi**2)
+            wp[i]= 2*ius(rev,xir(rev)/np.sqrt(1- (rp[i]/(rev+rMin))**2)).integral(rev.min(),rev.max())
+            if(wantGrad): wp_grad[i] =2*ius(rev,grad_xir(rev)/np.sqrt(1- (rp[i]/(rev+rMin))**2)).integral(rev.min(),rev.max())
+
 
         if(wantGrad):
             return wp,wp_grad
@@ -303,7 +326,7 @@ class CrossCorrelator(hzpt):
 
     def Delta_Sigma(self,rp,DS0, #PM
                     Ds,Dl,zl,rhom, #background/bin-dependent quantities
-                    pi=np.linspace(0,100,10+1),rpMin=1.,num_rpint=1000,wantGrad=False):
+                    pi=np.linspace(0,100,100+1),rpMin=1.,num_rpint=1000,wantGrad=False):
 
         """Delta Sigma GGL statistic. Lens redshift is assumed to be the CrossCorrelator attribute z.
         TODO: cosmology gradients?
@@ -333,7 +356,7 @@ class CrossCorrelator(hzpt):
         (array (float), array (float), [array (float)])
             projected radius rp, projected correlation function wp, gradient if wanted
         """
-        #FIXME: turns out do not actually need this (it works though)- we are not computing tangential shear...
+        #FIXME: turns out do not actually need this (it works though)- we are not computing tangential shear...might later
         # def inv_Sigma_crit(Ds,Dl,zl):
         #     c=2.99792e5 #km/s
         #     G=4.30071e-9 #Mpc (km/s)**2 * M_sun^-1

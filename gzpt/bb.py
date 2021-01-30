@@ -58,15 +58,25 @@ def PBB(k,params,nmax,wantGrad=False):
             R1h_grad = -(2*A0* k**2 *R1h)/(1 + k**2 * R1h**2)**2 * F_comp(k,R)
             return np.array([A_grad,R_grad,R1h_grad])
         elif(nmax==2):
-            R_grad = 2*A0*(1+ k**2 * R1sq)/((1 + k**2 * R1h**2 + k**4 * R2h**4)* k**2 * R**3) * F_comp(k,R)**2
-            R1h_grad = -2*A0*(1+ k**2 * R**2)*R1h*(1+k**2 *R1sq)/((1 + k**2 * R1h**2 + k**4 * R2h**4)**2 * R**2) * F_comp(k,R)**2
-            R1sq_grad = (A0* k**2)/(1 + k**2 * R1h**2 +k**4 * R2h**4) * F_comp(k,R)
-            R2h_grad = -4*A0* k**4 * (1+k**2 * R1sq) *R2h**3 /(1 + k**2 * R1h**2 +k**4 *R2h**4)**2 * F_comp(k,R)
+            k2,k4 = k**2,k**4
+            R1h2,R2h4 = R1h**2,R2h**4
+            R_grad = 2*A0*(1+ k2 * R1sq)/((1 + k2 * R1h2 + k4 * R2h4)* k2 * R**3) * F_comp(k,R)**2
+            R1h_num = -2*A0* (k2 + 2*(R2h4/R1h2)*k4) * R1h * (1 + k2 * R1sq ) * F_comp(k,R)
+            R1h_denom = (1 + k2 * R1h2 + k4 * R2h4)**2
+            R1h_grad = R1h_num/R1h_denom
+            R1sq_grad = (A0* k2)/(1 + k2 * R1h2 +k4 * R2h4) * F_comp(k,R)
+            R2h_grad = -4*A0* k4 * (1+k2 * R1sq) *R2h**3 /(1 + k2 * R1h2 + k4 *R2h4)**2 * F_comp(k,R)
 
-            #convert R2h_grad to R12_grad - R12 = \frac{R1h}{R2j} => \frac{}\partial(PBB(...,R2h))}{\partial{R12}} = grad_R2h * \frac{\partial{R2h}}{\partial{R12}}
+            #convert R2h_grad to R12_grad - R12 = \frac{R1h}{R2h} => \frac{}\partial(PBB(...,R2h))}{\partial{R12}} = grad_R2h * \frac{\partial{R2h}}{\partial{R12}}
             #this last factor is chain_fac and is just \frac{-1*R1h}{sqrt{2} R12^2} = \frac{-sqr{2}*R2h^2}{R1h}
-            chain_fac = -np.sqrt(2)*R2h**2 /R1h
+            #where did this sqrt2 come from? looks like a mistake..
+            #it is really \frac{-1*R1h}{R12^2} = -\frac{R1h}{(R1h/R2h)^2} = - \frac{R2h^2}{R1h}
+            chain_fac = -np.sqrt(2)*R2h**2 /R1h #-R2h**2 /R1h #-np.sqrt(2)*R2h**2 /R1h
             R12_grad = R2h_grad*chain_fac
+            #no I was right...the sqrt 2 is part of my definition...
+            #also need a chain fac for R1h
+            #d(pbb)/d(R1h) = A0 F(k) d(bb)/dR1h, d(bb)/dR1h = (1+R1sq k^2) d((1 + k^2 R1h^2 + k^4 R2h^4)^(-1))/d(R1h)
+            #this is finally fixed...
 
             #return np.array([A_grad,R_grad,R1h_grad,R1sq_grad,R2h_grad])
             return np.array([A_grad,R_grad,R1h_grad,R1sq_grad,R12_grad])
@@ -148,26 +158,26 @@ def XiBB(r,params,nmax,wantGrad=False):
             return np.array([A_grad,R_grad])
         if(nmax==1):
             R2,R1h2,R1h4 = R**2,R1h**2,R1h**4
-            R_num = -A0*np.exp(-r/R1h)*(2.*R**3 *(-1. + np.exp(r*(1/R - 1/R1h)))
+            R_num = -A0*np.exp(-r/R)*(2.*R**3 *(-1. + np.exp(r*(1/R - 1/R1h)))
                                         +r*(R2 - R1h2)
                                        )
-            R_denom = 4.*np.pi*(R**3 - R*R1h2)**2
+            R_denom = 4.*np.pi*r*(R**3 - R*R1h2)**2
             R_grad = R_num/R_denom
-            R1h_num = A0*np.exp(-r/R1h)*(-2.*R1h**5 *np.exp(r*(1/R - 1/R1h))
-                                         *R2 *(-2.*R2 *R1h
-                                                 +4.*R1h**3
-                                                 +r*(R-R1h)*(R+R1h)
-                                                )
+            R1h_num = A0*np.exp(-r/R)*(-2. * R1h**5
+                                        + np.exp(r*(1/R - 1/R1h))*R2 *(-2.*R2 *R1h
+                                                                       +4.*R1h**3
+                                                                       +r*(R2 - R1h2)
+                                                                       )
                                         )
-            R1h_denom = 4.*np.pi*R1h4 * (R2 - R1h2)**2
-            R1h_grad =R1h_num/R1h_denom
+            R1h_denom = 4.*np.pi*r*R1h4 * (R2 - R1h2)**2
+            R1h_grad = R1h_num/R1h_denom
             return np.array([A_grad,R_grad,R1h_grad])
         elif(nmax==2):
             "Chain rule for this very long expression"
             """TODO:- should make it so don't need to run this twice - probably refactor the gradient into the actual function, turn into func+jac"""
             #setup
             R2,R3,R4,R5,R6 = R**2, R**3, R**4, R**5,R**6
-            R1h2,R1h3,R1h4,R1h5,R1h6, R1h7,R1h8 = R1h**2, R1h**3, R1h**4, R1h**5, R1h**6, R1h**7, R1h**8
+            R1h2,R1h3,R1h4,R1h5,R1h6,R1h7,R1h8 = R1h**2, R1h**3, R1h**4, R1h**5, R1h**6, R1h**7, R1h**8
             R2h2,R2h3,R2h4,R2h5,R2h8 = R2h**2, R2h**3, R2h**4, R2h**5, R2h**8
 
             pre = 1/(1 -(R1h2/R2) +(R2h4/R4))
@@ -176,7 +186,7 @@ def XiBB(r,params,nmax,wantGrad=False):
             B = -(1/(2*R2h4 *S))*(R2h4 *(R1h**2 + S) - R1sq *(R1h4 - 2*R2h4 +R1h2 *S) + R2 *(-2*R2h4 + R1sq *(R1h2 + S)))
 
             T1 = 1- R1sq/R2
-            EA = np.exp(r*(1/R - (1/R2h2)*np.sqrt((R1h2- S)/2)))
+            EA = np.exp(r*(1/R - (1/R2h2)*np.sqrt((R1h2 - S)/2)))
             EB = np.exp(r*(1/R - (1/R2h2)*np.sqrt((R1h2 + S)/2)))
             T2 = A*EA
             T3 = B*EB
@@ -192,22 +202,30 @@ def XiBB(r,params,nmax,wantGrad=False):
             T3_R_grad = B_R_grad*EB + B*EB_R_grad
             BB_R_grad = pre_R_grad*(T1+T2+T3) + pre*(T1_R_grad + T2_R_grad + T3_R_grad)
 
-            R_grad = F_comp_R_grad*pade2(r,R,R1h,R1sq,R2h) + (-A0*F_comp_R_grad)*BB_R_grad
+            R_grad = F_comp_R_grad*pade2(r,R,R1h,R1sq,R2h) + (- A0 * F2_comp(r,R))*BB_R_grad
 
             #R1h
-            pre_R1h_grad = (2.*R6*R1h)/(R4 - R2*R1h2 + R2h4)**2
-            S_R1h_grad = 2.*R1h3/S
-            A_R1h_grad = -(R1h7*R1sq - 2.*R1h3*(R2 + 3.*R1sq)*R2h4 - R1h5*R1sq*S
-                           + 4.*R1h*R2h4*(R2h4 +R1sq*(R2 + S)))/(R2h4*(S**3))
-            EA_R1h_grad = ((r*R1h*np.sqrt((R1h2-S)/2.))/(R1h2*S)) * EA
-            B_R1h_grad = (R1h7*R1sq - 2.*R1h3*(R2 + 3.*R1sq)*R2h4 + R1h5*R1sq*S
-                           + 4.*R1h*R2h4*(R2h4 +R1sq*(R2 + S)))/(R2h4*(S**3))
-            EB_R1h_grad = ((r*R1h*np.sqrt((R1h2+S)/2.))/(R1h2*S)) * EB
+            #pre_R1h_grad = (2.*R6*R1h)/(R4 - R2*R1h2 + R2h4)**2
+            pre_R1h_grad = (2.*R6*R1h-4.*R4*R2h4)/(R1h*(R4 - R2*R1h2 + R2h4)**2)
+            #S_R1h_grad = 2.*R1h3/S
+            S_R1h_grad = 2.*S/R1h
+            #A_R1h_grad = -(R1h7*R1sq - 2.*R1h3*(R2 + 3.*R1sq)*R2h4 - R1h5*R1sq*S
+            #               + 4.*R1h*R2h4*(R2h4 +R1sq*(R2 + S)))/(R2h4*(S**3))
+            A_R1h_grad = (R1sq*(R1h4 - 2.*R2h4 - R1h2*S)
+                          + 2.*R2*(-R1h2*R1sq + R2h4 + R1sq*S))/(R1h*R2h4*S)
+            #EA_R1h_grad = ((r*R1h*np.sqrt((R1h2-S)/2.))/(R1h2*S)) * EA
+            EA_R1h_grad = ((r*np.sqrt((R1h2-S)/2.))/(R1h*R2h2)) * EA
+            #B_R1h_grad = (R1h7*R1sq - 2.*R1h3*(R2 + 3.*R1sq)*R2h4 + R1h5*R1sq*S
+            #               + 4.*R1h*R2h4*(R2h4 +R1sq*(R2 + S)))/(R2h4*(S**3))
+            B_R1h_grad = (-R1sq*(R1h4 - 2.*R2h4 + R1h2*S)
+                           + 2*R2*(-R2h4 + R1sq*(R1h2 + S)))/(R1h*R2h4*S)
+            #EB_R1h_grad = ((r*R1h*np.sqrt((R1h2+S)/2.))/(R1h2*S)) * EB
+            EB_R1h_grad = ((r*np.sqrt((R1h2+S)/2.))/(R1h*R2h2)) * EB
             T2_R1h_grad = A_R1h_grad*EA + A*EA_R1h_grad
             T3_R1h_grad = B_R1h_grad*EB + B*EB_R1h_grad
             BB_R1h_grad = pre_R1h_grad*(T1+T2+T3) + pre*(T2_R1h_grad + T3_R1h_grad)
 
-            R1h_grad = (-A0*F_comp_R_grad)*BB_R1h_grad
+            R1h_grad = (-A0*F2_comp(r,R))*BB_R1h_grad
 
             #R1sq
             T1_R1sq_grad = -1./R2
@@ -217,7 +235,7 @@ def XiBB(r,params,nmax,wantGrad=False):
             T3_R1sq_grad = B_R1sq_grad*EB
             BB_R1sq_grad = pre*(T1_R1sq_grad + T2_R1sq_grad + T3_R1sq_grad)
 
-            R1sq_grad = (-A0*F_comp_R_grad)*BB_R1sq_grad
+            R1sq_grad = (-A0*F2_comp(r,R))*BB_R1sq_grad
 
             #R2h
             pre_R2h_grad = -(4.*R4*R2h3)/(R4 - R2*R1h2 + R2h4)**2
@@ -229,9 +247,9 @@ def XiBB(r,params,nmax,wantGrad=False):
                                    )
                              )/(R2h5*(S**3))
             EA_R2h_grad = r*(-R1h4 + 2.*R2h4 + R1h2*S)/(R2h3*S*np.sqrt((R1h2-S)/2.)) * EA
-            B_R2h_grad = 2.*(R1h8*R1sq - 6.*R1h4*R1sq*R2h4 + 4.*R1sq*R2h8
+            B_R2h_grad = -2.*(R1h8*R1sq - 6.*R1h4*R1sq*R2h4 + 4.*R1sq*R2h8
                               + R1h6*R1sq*S - R2*(R1h6*R1sq - 6.*R1h2*R1sq*R2h4
-                                                  + 4.*R2h8 +R1h4*R1sq*S -4.*R1sq*R2h4*S
+                                                  + 4.*R2h8 + R1h4*R1sq*S -4.*R1sq*R2h4*S
                                                  )
                               + 2.*R1h2*(R2h8 - 2.*R1sq*R2h4*S)
                              )/(R2h5*(S**3))
@@ -240,10 +258,11 @@ def XiBB(r,params,nmax,wantGrad=False):
             T3_R2h_grad = B_R2h_grad*EB + B*EB_R2h_grad
             BB_R2h_grad = pre_R2h_grad*(T1+T2+T3) + pre*(T2_R2h_grad + T3_R2h_grad)
 
-            R2h_grad = (-A0*F_comp_R_grad)*BB_R2h_grad
+            R2h_grad = (-A0*F2_comp(r,R))*BB_R2h_grad
 
             #see note for description of chain factor in PBB
             chain_fac = -np.sqrt(2)*R2h**2 /R1h
+            R12_grad = R2h_grad*chain_fac
 
             #return np.array([A_grad,R_grad,R1h_grad,R1sq_grad,R2h_grad])
             return np.array([A_grad,R_grad,R1h_grad,R1sq_grad,R12_grad])
