@@ -26,6 +26,11 @@ class AutoCorrelator(hzpt):
         self.useExc = useExc
         self.hzpt = hzpt
 
+    # def Fk_excl(self,wantGrad=False):
+    #
+    #
+    #     return
+
 
     def Power(self,wantGrad=False):
         '''
@@ -59,9 +64,10 @@ class AutoCorrelator(hzpt):
                 return 1/nbar + b1**2 * (self.hzpt.P_zel(k) + bb)
         return Pk
 
-    def F_excl(self,r,R_excl,sigma_excl,wantGrad=False):
+    def Fr_excl(self,r,R_excl,sigma_excl=None,wantGrad=False):
         '''
-        Error function for the exclusion step as in Baldauf++ 2013 eqns (C2), (C4), with log10 as in main text
+        Model for the exclusion step.
+        If no sigma_excl is provided, use the Exp model, o.w. use model of Baldauf++2013.
         Parameters
         ----------
         r : array (float)
@@ -77,17 +83,28 @@ class AutoCorrelator(hzpt):
         array or (array,array)
             Exclusion kernel, and gradient, if asked for
         '''
-        F = .5*(1 + erf(np.log10(r/R_excl)/(np.sqrt(2)*sigma_excl)))
-        if(wantGrad):
-            ln10 = np.log(10)
-            exp = -np.exp(-np.log(r/R_excl)**2 / (2*sigma_excl**2 * ln10**2))
-            denom = np.sqrt(2.*np.pi)* sigma_excl * ln10
-            grad_Re = exp*denom/R_excl
-            grad_sigmae = exp*denom*np.log(r/R_excl)/sigma_excl
-            grad_F = [grad_Re,grad_sigmae]
-            return F,grad_F
+        #Error function for the exclusion step as in Baldauf++ 2013 eqns (C2), (C4), with log10 as in main text
+        if(sigma_excl==None):
+            f = 1-np.exp(-(r/R_excl)**4)
+            F = f**2
+            if(wantGrad):
+                grad_Re = -8*(r / R_excl)**4 /R_excl * np.exp(-(r/R_excl)**4) * f
+                grad_F = [grad_Re,None]
+                return F,grad_F
+            else:
+                return F
         else:
-            return F
+            F = .5*(1 + erf(np.log10(r/R_excl)/(np.sqrt(2)*sigma_excl)))
+            if(wantGrad):
+                ln10 = np.log(10)
+                exp = -np.exp(-np.log(r/R_excl)**2 / (2*sigma_excl**2 * ln10**2))
+                denom = np.sqrt(2.*np.pi)* sigma_excl * ln10
+                grad_Re = exp*denom/R_excl
+                grad_sigmae = exp*denom*np.log(r/R_excl)/sigma_excl
+                grad_F = [grad_Re,grad_sigmae]
+                return F,grad_F
+            else:
+                return F
 
     def Xi(self,wantGrad=False):
         '''
@@ -106,19 +123,25 @@ class AutoCorrelator(hzpt):
                 b1,pparams,eparams = self.params[1],self.params[2:-2],self.params[-2:]
             elif(self.nmax==2):
                 b1,pparams,eparams,ohparams = self.params[1],self.params[2:-4],self.params[-4:-2],self.params[-2:]
-            R_excl,sigma_excl = eparams[0],eparams[1]
+            if(len(eparams==2)):
+                R_excl,sigma_excl = eparams[0],eparams[1]
+            else:
+                R_excl,sigma_excl = eparams,None
         else:
             b1,pparams,eparams = self.params[1],self.params[2:],None
 
         def xi(r):
             #Set exclusion
             if(self.useExc):
-                R,sigma = eparams
+                if(len(eparams==2)):
+                    R,sigma = eparams
+                else:
+                    R,sigma = eparams,None
                 if(wantGrad):
-                    exclusion,e_grad = self.F_excl(r,R,sigma,wantGrad=True)
+                    exclusion,e_grad = self.Fr_excl(r,R,sigma,wantGrad=True)
                     grad_Re,grad_sigmae = e_grad
                 else:
-                    exclusion = self.F_excl(r,R,sigma)
+                    exclusion = self.Fr_excl(r,R,sigma)
             else:
                 exclusion=1.
 
@@ -187,7 +210,6 @@ class AutoCorrelator(hzpt):
             xir,grad_xir = self.Xi(wantGrad=wantGrad)
         else:
             xir = self.Xi(wantGrad=wantGrad)
-        #wp - yet again
         dpi = pi[1]-pi[0] #bin width
         wp = np.zeros(len(rp))
         for i in range(len(wp)):
@@ -277,7 +299,6 @@ class CrossCorrelator(hzpt):
         else:
             xir = self.Xi(wantGrad=wantGrad)
 
-        #wp - yet again
         dpi = pi[1]-pi[0] #bin width
         wp = np.zeros(len(rp))
         for i in range(len(wp)):
