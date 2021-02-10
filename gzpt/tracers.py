@@ -3,7 +3,7 @@ from gzpt import hzpt
 from gzpt.bb import *
 import numpy as np
 from numpy import inf
-from scipy.special import erf
+from scipy.special import erf,gamma,poch
 from scipy.interpolate import InterpolatedUnivariateSpline as ius
 from scipy.integrate import cumtrapz
 
@@ -26,11 +26,24 @@ class AutoCorrelator(hzpt):
         self.useExc = useExc
         self.hzpt = hzpt
 
-    # def Fk_excl(self,wantGrad=False):
-    #
-    #
-    #     return
+    def Fk_excl(self,k,R_excl,wantGrad=False):
 
+        def hyp0f2(b1,b2, z, eps=1e-6, nmax=10):
+            sum = 0
+            #accumulate the sum from scratch, no convenient identities, but 5 terms seems good enough
+            for k in range(nmax):
+                sum+= 1/(poch(b1,k)*poch(b2,k)) * z**k / np.factorial(k)
+            return sum
+
+        def fk(k,R_excl):
+            #see B.8 of paper
+            #come back and pass arguments for 0F2 convergence
+            t1 = -R_excl**3 / 3 * gamma(7/4) * hyp0f2(1/2,5/4,k*R_excl/4)
+            t2 =  k**2 * R_excl**5 /24 * gamma(5/4) * hyp0f2(3/2,7/4,k*R_excl/4)
+            return t1 + t2
+
+        F = -2*fk(k,R_excl) + fk(k,2**(-1/4) * R_excl)
+        return F
 
     def Power(self,wantGrad=False):
         '''
