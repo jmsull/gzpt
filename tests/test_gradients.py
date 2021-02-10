@@ -1,4 +1,4 @@
-"Simple check to make sure gradients exist"
+"Test analytic gradients against finite differences (to check for mistakes)"
 import gzpt
 from gzpt import zel,matter,tracers
 import numpy as np
@@ -6,6 +6,9 @@ import os
 
 def test_gradients_exist():
     #arbitrarily select reasonable parameter values
+
+    #finite difference
+    atol,rtol,eps=1e-4,1e-8,1e-8
 
     #set up the model
     testfile = os.path.join(os.path.dirname(__file__), './test_plin_planck_z0.55.txt')
@@ -19,8 +22,12 @@ def test_gradients_exist():
     test_mm_params = np.array([350., 26., 5.5, 15., 1.9])
     mm = matter.Correlator(test_mm_params,model)
     Pmm_test,Pmm_grad = mm.Power(wantGrad=True)(ktest)
+    Pmm_p =
+    Pmm_m =
+    Pmm_fd =
     ximm_test,ximm_grad = mm.Xi(wantGrad=True)(rtest)
-    assert ~np.any(np.isnan(Pmm_grad)), \
+    #assert ~np.any(np.isnan(Pmm_grad)), \
+    assert np.allclose((delta)/(2*eps*mm_ps[i]),gradsk[:,i],rtol=rtol,atol=atol)
     "matter.Power gradient does not exist"
     assert ~np.any(np.isnan(ximm_grad)), \
     "matter.Xi gradient does not exist"

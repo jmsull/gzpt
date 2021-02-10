@@ -59,8 +59,6 @@ class AutoCorrelator(hzpt):
                 return 1/nbar + b1**2 * (self.hzpt.P_zel(k) + bb)
         return Pk
 
-    '''EXCLUSION'''
-
     def F_excl(self,r,R_excl,sigma_excl,wantGrad=False):
         '''
         Error function for the exclusion step as in Baldauf++ 2013 eqns (C2), (C4), with log10 as in main text
@@ -125,7 +123,7 @@ class AutoCorrelator(hzpt):
                 exclusion=1.
 
             if(self.nmax==2 and self.useExc):
-                R_s_fixed=1e3
+                R_s_fixed=1e3 #fix compensation to effectively infinity
                 if(wantGrad):
                     bb,bbgrad = XiBB(r,pparams,nmax=1,wantGrad=True)
                     xic = b1**2 * (self.hzpt.Xi_zel(r) + bb)
@@ -184,24 +182,11 @@ class AutoCorrelator(hzpt):
             projected radius rp, projected correlation function wp, gradient if wanted
         """
 
-        # dpi = pi[1]-pi[0] #bin width
-        # #pi_e = pi+dpi/2 #bin edges
-        # pi_pts = np.concatenate([-pi[::-1],pi[1:]]) #add negative points, now don't need factor of 2 in wp
-        # #I think this might not strictly be what follows the text of Singh++16 but for the low-rp values need a point at pi=0
-        # #O.w. will underestimate wp below r=5-10, another solution to this would be log binning pi but this is not done bc real bins I guess are linear
-        #
         if(wantGrad):
             wp_grad=np.zeros((len(wp),len(self.params)))
             xir,grad_xir = self.Xi(wantGrad=wantGrad)
         else:
             xir = self.Xi(wantGrad=wantGrad)
-        # #given now rp = np.logspace(np.log10(r.min()),np.log10(r.max()),100)
-        # wp = np.zeros(len(rp))
-        # for i in range(len(wp)):
-        #     rev=np.sqrt(rp[i]**2 + pi_pts**2)
-        #     wp[i] = dpi * np.sum(xir(rev))
-        #     if(wantGrad): wp_grad[i] = dpi * np.sum(grad_xir(rev),axis=0) #not sure if this works
-        #
         #wp - yet again
         dpi = pi[1]-pi[0] #bin width
         wp = np.zeros(len(rp))
@@ -209,7 +194,6 @@ class AutoCorrelator(hzpt):
             rev=np.sqrt(rp[i]**2 + pi**2)
             wp[i]= 2*ius(rev,xir(rev)/np.sqrt(1- (rp[i]/(rev+rMin))**2)).integral(rev.min(),rev.max())
             if(wantGrad): wp_grad[i] =2*ius(rev,grad_xir(rev)/np.sqrt(1- (rp[i]/(rev+rMin))**2)).integral(rev.min(),rev.max())
-
 
         if(wantGrad):
             return wp,wp_grad
@@ -287,28 +271,11 @@ class CrossCorrelator(hzpt):
             projected radius rp, projected correlation function wp, gradient if wanted
         """
 
-        #dpi = pi[1]-pi[0] #bin width
-        #pi_e = pi+dpi/2 #bin edges
-        #pi_pts = np.concatenate([-pi[::-1],pi[1:]]) #add negative points, now don't need factor of 2 in wp
-        #I think this might not strictly be what follows the text of Singh++16 but for the low-rp values need a point at pi=0
-        #O.w. will underestimate wp below r=5-10, another solution to this would be log binning pi but this is not done bc real bins I guess are linear
-
         if(wantGrad):
             wp_grad=np.zeros((len(rp),len(self.params)))
             xir,grad_xir = self.Xi(wantGrad=wantGrad)
         else:
             xir = self.Xi(wantGrad=wantGrad)
-        # #given now rp = np.logspace(np.log10(r.min()),np.log10(r.max()),100)
-        # wp = np.zeros(len(rp))
-        # for i in range(len(wp)):
-        #     rev=np.sqrt(rp[i]**2 + pi_pts**2)
-        #     wp[i] = dpi * np.sum(xir(rev))
-        #     if(wantGrad): wp_grad[i] = dpi * np.sum(grad_xir(rev),axis=0) #not sure if this works
-        #
-        # if(wantGrad):
-        #     return wp,wp_grad
-        # else:
-        #     return wp
 
         #wp - yet again
         dpi = pi[1]-pi[0] #bin width
@@ -329,7 +296,6 @@ class CrossCorrelator(hzpt):
                     pi=np.linspace(0,100,100+1),rpMin=1.,num_rpint=1000,wantGrad=False):
 
         """Delta Sigma GGL statistic. Lens redshift is assumed to be the CrossCorrelator attribute z.
-        TODO: cosmology gradients?
         Again - no redshift distribution function.
         Parameters:
         -----------
@@ -371,41 +337,26 @@ class CrossCorrelator(hzpt):
 
 
         if(wantGrad):
-            #rp,wpgm,grad_wpgm = self.wp(r,pi_bins=pi_bins,wantGrad=True)
             wpgm,grad_wpgm = self.wp(rp,pi=pi,wantGrad=True)
 
         else:
-            #rp,wpgm = self.wp(r,pi_bins=pi_bins)
             wpgm = self.wp(rp,pi=pi)
-            #test where we know the answer
-            #rp,_,_,wpgm,_,_,_,_,_,_,_,_ = np.loadtxt('/Users/jsull/tmp_cori_maintenence/mocks_sukhdeep/evol_mock/evol_DM1_r00.2_w.dat',unpack=True)
-        #Using Sukhdeep 2018 eqn 29 - there is a typo so add missing factor of 2
-        #I = np.zeros(len(rp))
-        # cutmask = rp>=(rpMin-.01)
-        # wpgm_cut = wpgm[cutmask] #we do not want to use scales in the integration less than r0
-        # wp_s = ius(rp,wpgm,ext=2)
-        # wpcut_s = ius(rp[cutmask],wpgm_cut,ext=2)
-        # S0 = rpMin**2 * (DS0 + rhom_zl*wp_s(rpMin))
         #rp interpolation pts
         rpint=np.logspace(np.log10(rp.min()),np.log10(rp.max()),num_rpint) #FIXME probably not necessary to use 1000
 
         if(wantGrad):
-            # I_grad_hzpt = np.zeros((len(rp),len(self.params)))
-            # I_grad_PM = np.zeros(len(rp))
             I_grad_hzpt = np.zeros((len(rpint),len(self.params)))
             I_grad_PM = np.zeros(len(rpint))
 
-        # rp_c = rp[rp>=rMin]
-        # wpgm_c = wpgm[rp>=rMin]
         wint = np.interp(rpint,rp,wpgm)
         rpint_c = rpint[rpint>=rpMin]
         wint_c = wint[rpint>=rpMin]
         s_int = rhom*np.interp(rpint,rp,wpgm)
         s = rhom*wpgm
-        #s_c = rhom*wpgm_c
         sint_c = rhom*wint_c
         t1=np.zeros(len(rpint))
         t1[rpint<rpMin] = 0.
+        #Using Sukhdeep 2018 eqn 29 - there is a typo so add missing factor of 2
         t1[rpint>=rpMin] = (2./rpint_c**2)*cumtrapz(rpint_c*sint_c,x=rpint_c,initial=0)
         t2 = -s_int
         S0=np.interp(rpMin,rpint,s_int)
@@ -422,41 +373,9 @@ class CrossCorrelator(hzpt):
             term2_grad = -rhom*grad_wpgm
             I_grad_hzpt = term1_grad+term2_grad
             I_grad_PM = 1/rpint**2
-        # j=0
-        # rpint = np.logspace(np.log10(rp.min()),np.log10(rp.max()-0.01),100)
-        # I = np.zeros(len(rpint))
-        # I1,I2,I3 = np.zeros(len(rpint)),np.zeros(len(rpint)),np.zeros(len(rpint))
-        #
-        #
-        #
-        # for i,p in enumerate(rpint):
-        #     if(p<=rpMin): #streamline this later
-        #         term1 = 0. #do not perform the integral over wpgm below rpMin
-        #         j+=1
-        #     else:
-        #         #maybe this is bad...replace with interpolators?
-        #         rr = np.linspace(rpMin,p,100)#len(wpgm_cut[:i-j]))
-        #         ig = rr*rhom_zl*wpcut_s(rr)#wpgm_cut[:i-j]
-        #         term1 = (2./p**2)*np.trapz(ig,x=rr) #integral term
-        #     term2 = -rhom_zl*wp_s(p)#wpgm[i] #Sigma_gm, Msun Mpc^-2 h
-        #     term3 =  S0 *(1/p**2) #Sigma_0 ~Pm term
-        #     I1[i] = term1
-        #     I2[i] = term2
-        #     I3[i] = term3
-        #     I[i] = term1 + term2 + term3
-        #     if(wantGrad):
-        #         #just constants and sums
-        #         ig_grad = rhom_zl*(grad_wpgm[:i].T*rr).T
-        #         term1_grad = (2./p**2)*np.trapz(ig,x=rr,axis=0)
-        #         term2_grad = -rhom_zl*grad_wpgm[i]
-        #         I_grad_hzpt[i] = term1_grad+term2_grad
-        #         I_grad_PM[i] = 1/p**2
-
 
         if(wantGrad):
             grad_DS = np.concatenate([I_grad_hzpt,np.atleast_2d(I_grad_PM).T],axis=1)
-            #return rpint,DS,grad_DS
             return DS,grad_DS
         else:
-            #return rpint,DS
             return DS

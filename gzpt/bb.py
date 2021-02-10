@@ -1,5 +1,5 @@
 import numpy as np
-"The broadband function"
+"The broadband beyond Zeldovich function"
 
 def PBB(k,params,nmax,wantGrad=False):
     '''Pade Power
@@ -29,7 +29,6 @@ def PBB(k,params,nmax,wantGrad=False):
         A0,R,R1h = params
         R1sq,R2h = None, None
     elif(nmax==2):
-        #A0,R,R1h,R1sq,R2h = params
         A0,R,R1h,R1sq,R12 = params
         R2h = R1h/(np.sqrt(2)*R12) #R12 is R1h/R2h/sqrt(2) and is forced to be > 1
         if(R12<=.99) : raise ValueError("R12 must be greater than 1. for physical values.")
@@ -69,16 +68,10 @@ def PBB(k,params,nmax,wantGrad=False):
 
             #convert R2h_grad to R12_grad - R12 = \frac{R1h}{R2h} => \frac{}\partial(PBB(...,R2h))}{\partial{R12}} = grad_R2h * \frac{\partial{R2h}}{\partial{R12}}
             #this last factor is chain_fac and is just \frac{-1*R1h}{sqrt{2} R12^2} = \frac{-sqr{2}*R2h^2}{R1h}
-            #where did this sqrt2 come from? looks like a mistake..
-            #it is really \frac{-1*R1h}{R12^2} = -\frac{R1h}{(R1h/R2h)^2} = - \frac{R2h^2}{R1h}
-            chain_fac = -np.sqrt(2)*R2h**2 /R1h #-R2h**2 /R1h #-np.sqrt(2)*R2h**2 /R1h
+            chain_fac = -np.sqrt(2)*R2h**2 /R1h
             R12_grad = R2h_grad*chain_fac
-            #no I was right...the sqrt 2 is part of my definition...
-            #also need a chain fac for R1h
             #d(pbb)/d(R1h) = A0 F(k) d(bb)/dR1h, d(bb)/dR1h = (1+R1sq k^2) d((1 + k^2 R1h^2 + k^4 R2h^4)^(-1))/d(R1h)
-            #this is finally fixed...
 
-            #return np.array([A_grad,R_grad,R1h_grad,R1sq_grad,R2h_grad])
             return np.array([A_grad,R_grad,R1h_grad,R1sq_grad,R12_grad])
 
 
@@ -118,7 +111,6 @@ def XiBB(r,params,nmax,wantGrad=False):
         A0,R,R1h = params
         R1sq,R2h = None, None
     elif(nmax==2):
-        #A0,R,R1h,R1sq,R2h = params
         A0,R,R1h,R1sq,R12 = params
         R2h = R1h/(np.sqrt(2)*R12) #R12 is R1h/R2h/sqrt(2) and is forced to be > 1
         if(R12<=.99) : raise ValueError("R12 must be greater than 1. for physical values.")
@@ -137,7 +129,7 @@ def XiBB(r,params,nmax,wantGrad=False):
         elif(nmax==1):
             return (1 - (R/R1h)**2 * np.exp(-(R-R1h)*r/(R*R1h)))/(1 - (R1h/R)**2)
         elif(nmax==2):
-            '''Hand et al. 2017 eqns. (B.8-.11) '''
+            '''Hand et al. 2017 eqns. (B.8-B.11) '''
             pre = 1/(1 -(R1h/R)**2 +(R2h/R)**4)
             S = np.sqrt(R1h**4 - 4*R2h**4)
             A = (1/(2*R2h**4 *S))*(R**2 *(-2*R2h**4 +R1sq *(R1h**2 -S)) + R2h**4 *(R1h**2 -S) + R1sq *(-R1h**4 +2*R2h**4 + R1h**2 *S))
@@ -174,7 +166,7 @@ def XiBB(r,params,nmax,wantGrad=False):
             return np.array([A_grad,R_grad,R1h_grad])
         elif(nmax==2):
             "Chain rule for this very long expression"
-            """TODO:- should make it so don't need to run this twice - probably refactor the gradient into the actual function, turn into func+jac"""
+            """TODO:- should make it so don't need to run this twice - probably refactor the gradient into the actual function, turn into f+j"""
             #setup
             R2,R3,R4,R5,R6 = R**2, R**3, R**4, R**5,R**6
             R1h2,R1h3,R1h4,R1h5,R1h6,R1h7,R1h8 = R1h**2, R1h**3, R1h**4, R1h**5, R1h**6, R1h**7, R1h**8
@@ -205,21 +197,13 @@ def XiBB(r,params,nmax,wantGrad=False):
             R_grad = F_comp_R_grad*pade2(r,R,R1h,R1sq,R2h) + (- A0 * F2_comp(r,R))*BB_R_grad
 
             #R1h
-            #pre_R1h_grad = (2.*R6*R1h)/(R4 - R2*R1h2 + R2h4)**2
-            pre_R1h_grad = (2.*R6*R1h-4.*R4*R2h4)/(R1h*(R4 - R2*R1h2 + R2h4)**2)
-            #S_R1h_grad = 2.*R1h3/S
+            pre_R1h_grad = (2.*R6*R1h2-4.*R4*R2h4)/(R1h*(R4 - R2*R1h2 + R2h4)**2)
             S_R1h_grad = 2.*S/R1h
-            #A_R1h_grad = -(R1h7*R1sq - 2.*R1h3*(R2 + 3.*R1sq)*R2h4 - R1h5*R1sq*S
-            #               + 4.*R1h*R2h4*(R2h4 +R1sq*(R2 + S)))/(R2h4*(S**3))
             A_R1h_grad = (R1sq*(R1h4 - 2.*R2h4 - R1h2*S)
                           + 2.*R2*(-R1h2*R1sq + R2h4 + R1sq*S))/(R1h*R2h4*S)
-            #EA_R1h_grad = ((r*R1h*np.sqrt((R1h2-S)/2.))/(R1h2*S)) * EA
             EA_R1h_grad = ((r*np.sqrt((R1h2-S)/2.))/(R1h*R2h2)) * EA
-            #B_R1h_grad = (R1h7*R1sq - 2.*R1h3*(R2 + 3.*R1sq)*R2h4 + R1h5*R1sq*S
-            #               + 4.*R1h*R2h4*(R2h4 +R1sq*(R2 + S)))/(R2h4*(S**3))
             B_R1h_grad = (-R1sq*(R1h4 - 2.*R2h4 + R1h2*S)
                            + 2*R2*(-R2h4 + R1sq*(R1h2 + S)))/(R1h*R2h4*S)
-            #EB_R1h_grad = ((r*R1h*np.sqrt((R1h2+S)/2.))/(R1h2*S)) * EB
             EB_R1h_grad = ((r*np.sqrt((R1h2+S)/2.))/(R1h*R2h2)) * EB
             T2_R1h_grad = A_R1h_grad*EA + A*EA_R1h_grad
             T3_R1h_grad = B_R1h_grad*EB + B*EB_R1h_grad
@@ -264,7 +248,6 @@ def XiBB(r,params,nmax,wantGrad=False):
             chain_fac = -np.sqrt(2)*R2h**2 /R1h
             R12_grad = R2h_grad*chain_fac
 
-            #return np.array([A_grad,R_grad,R1h_grad,R1sq_grad,R2h_grad])
             return np.array([A_grad,R_grad,R1h_grad,R1sq_grad,R12_grad])
 
     Xibb = -A0 * F2_comp(r,R) * pade2(r,R,R1h,R1sq,R2h)
