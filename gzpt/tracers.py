@@ -6,6 +6,7 @@ from numpy import inf
 from scipy.special import erf,gamma,poch
 from scipy.interpolate import InterpolatedUnivariateSpline as ius
 from scipy.integrate import cumtrapz
+from scipy.signal import convolve
 
 class AutoCorrelator(hzpt):
     '''hzpt object provides:
@@ -27,23 +28,58 @@ class AutoCorrelator(hzpt):
         self.hzpt = hzpt
 
     def Fk_excl(self,k,R_excl,wantGrad=False):
+        '''
+        Model for the exclusion step.
+        Use the Exp model.
+        Parameters
+        ----------
+        k : array (float)
+            pts to evaluate P
+        R_excl : float
+            Exclusion radius
+        wantGrad : boolean,optional
+            Whether to return the function value, or the tuple (val,grad).
+        Returns
+        ---------
+        array or (array,array)
+            Exclusion kernel, and gradient, if asked for
+        '''
 
-        def hyp0f2(b1,b2, z, eps=1e-6, nmax=10):
+        def _hyp0f2(b1,b2, z, eps=1e-6, nmax=10):
             sum = 0
             #accumulate the sum from scratch, no convenient identities, but 5 terms seems good enough
+            #mpmath does this but don't want to introduce dependency just for one function
             for k in range(nmax):
                 sum+= 1/(poch(b1,k)*poch(b2,k)) * z**k / np.factorial(k)
             return sum
 
-        def fk(k,R_excl):
+        def _fk(k,R_excl):
             #see B.8 of paper
-            #come back and pass arguments for 0F2 convergence
-            t1 = -R_excl**3 / 3 * gamma(7/4) * hyp0f2(1/2,5/4,k*R_excl/4)
-            t2 =  k**2 * R_excl**5 /24 * gamma(5/4) * hyp0f2(3/2,7/4,k*R_excl/4)
+            #try to come back and pass arguments for 0F2 convergence
+            t1 = -R_excl**3 / 3 * gamma(7/4) * _hyp0f2(1/2,5/4,k*R_excl/4)
+            t2 =  k**2 * R_excl**5 /24 * gamma(5/4) * _hyp0f2(3/2,7/4,k*R_excl/4)
             return t1 + t2
 
-        F = -2*fk(k,R_excl) + fk(k,2**(-1/4) * R_excl)
-        return F
+        F = -2*_fk(k,R_excl) + _fk(k,2**(-1/4) * R_excl)
+        if(wantGrad):
+            #analytic gradient of the above expression
+            t1 = -R_excl**2 * gamma(7/4) * _hyp0f2(1/2,5/4,k*R_excl/4)
+            t2 = -1/210 * k**4 * R_excl**6 * gamma(7/4) * _hyp0f2(3/2,9/4,k*R_excl/4)
+            t3 = 1/6 * k**2 * R_excl**4 * gamma(9/4) * _hyp0f2(3/2,7/4,k*R_excl/4)
+            t4 = 1/5040 * gamma(9/4) * k**6 * R_excl**8 * _hyp0f2(5/2,11/4,k*R_excl/4)
+            grad_R = t1 + t2 + t3 + t4
+            grad_F = [grad_R]
+            return F,grad_F
+        else:
+            return F
+
+
+    def convolve(k,x,y):
+
+        #FIXME most naive implementation, could do better with just about anything else for the integral
+
+
+        return res
 
     def Power(self,wantGrad=False):
         '''
@@ -58,10 +94,12 @@ class AutoCorrelator(hzpt):
         '''
         if(not self.useExc):
             nbar,b1,pparams = self.params[0],self.params[1],self.params[2:]
+        elif(self.nmax==1):
+            nbar,b1,pparams,eparams =  self.params[0],self.params[1],self.params[2:-1],self.params[-1:]
+        elif(self.nmax==2):
+            nbar,b1,pparams,eparams,ohparams = self.params[0],self.params[1],self.params[2:-3],self.params[-3:-2],self.params[-2:]
         else:
             raise(NotImplementedError)
-            print("Exclusion for power not implemented yet (and is not necessary for % accuracy).")
-            nbar,b1,pparams = self.params[0],self.params[1],self.params[2:-2]#,params[-2:]
 
         def Pk(k):
             if(wantGrad):
@@ -76,6 +114,52 @@ class AutoCorrelator(hzpt):
             else:
                 return 1/nbar + b1**2 * (self.hzpt.P_zel(k) + bb)
         return Pk
+
+    #copied from xi, need to do a similar thing for P
+    #FIXME unpack utility for params
+    if(self.useExc):
+        if(self.nmax==1):
+            b1,pparams,eparams = self.params[1],self.params[2:-2],self.params[-2:]
+        elif(self.nmax==2):
+            b1,pparams,eparams,ohparams = self.params[1],self.params[2:-4],self.params[-4:-2],self.params[-2:]
+        if(len(eparams==2)):
+            R_excl,sigma_excl = eparams[0],eparams[1]
+        else:
+            R_excl,sigma_excl = eparams,None
+    else:
+        b1,pparams,eparams = self.params[1],self.params[2:],None
+
+        def
+        if(self.useExc):
+            R = eparams
+            if(wantGrad):
+                exclusion,e_grad = self.Fk_excl(k,R,wantGrad=True)
+                grad_Re,grad_sigmae = e_grad
+            else:
+                exclusion = self.Fk_excl(r,R,sigma)
+        else:
+            exclusion=1.
+
+        if(wantGrad):
+                bb,bbgrad = XiBB(r,pparams,nmax=self.nmax,wantGrad=True)
+                xic = b1**2 * (self.hzpt.Xi_zel(r) + bb)
+                xi_baldauf_d = exclusion*(1. + xic) - 1.
+                b1_grad = 2.*xic/b1
+                if(self.useExc):
+                    return xi_baldauf_d,np.hstack([np.atleast_2d(b1_grad).T,
+                                                   b1**2 * bbgrad,
+                                                   np.atleast_2d(grad_Re*(1. + xic)).T,
+                                                   np.atleast_2d(grad_sigmae*(1. + xic)).T
+                                                   ])
+                else:
+                    return xi_baldauf_d,np.hstack([np.atleast_2d(b1_grad).T,
+                                                   b1**2 * bbgrad])
+            else:
+                xihzpt = b1**2 * (self.hzpt.Xi_zel(r)+ XiBB(r,pparams,nmax=self.nmax))
+                xi_baldauf_d = exclusion*(1+xihzpt)-1
+                return xi_baldauf_d
+
+    return xi
 
     def Fr_excl(self,r,R_excl,sigma_excl=None,wantGrad=False):
         '''
@@ -202,7 +286,6 @@ class AutoCorrelator(hzpt):
 
     '''Copying for now - will move projected statistics to another file later'''
     def wp(self,rp,pi=np.linspace(0,100,100+1),rMin=0.01,wantGrad=False):
-        "FIXME: Lazy copy from AutoCorrelator - should make this function accessible by both. - general correlator class..."
         """Projected correlation function.
         Parameters:
         -----------

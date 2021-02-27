@@ -328,11 +328,7 @@ class CLEFT:
     Class to calculate power spectra up to one loop.
     Based on Chirag's code
     https://github.com/sfschen/velocileptors/blob/master/LPT/cleft_fftw.py
-    The bias parameters are ordered in pktable as
-    1, b1, b1^2, b2, b1b2, b2^2, bs, b1bs, b2bs, bs^2, b3, b1 b3
-    where b3 is a catch-all for third order bias parameters degenerate at one-loop order.
-    Can combine into a full one-loop real-space power spectrum using the function combine_bias_terms_pk.
-
+    The bias parameters are ordered in pktable as 1
     '''
 
     def __init__(self, k, p, cutoff=10, jn=5, N = 2000, threads=1, extrap_min = -5, extrap_max = 3, import_wisdom=False, wisdom_file='wisdom.npy'):
@@ -372,7 +368,7 @@ class CLEFT:
         self.update_power_spectrum(k,p)
 
         self.pktable = None
-        self.num_power_components = 1#7 CHANGE TO 1
+        self.num_power_components = 1 #since just ZA
 
 
         self.jn = jn
@@ -401,8 +397,6 @@ class CLEFT:
 
         self.XYlin = self.Xlin + self.Ylin; self.sigma = self.XYlin[-1]
         self.yq = self.Ylin / self.qint
-
-        self.Ulin = self.qf.Ulin
         self.corlin = self.qf.corlin
 
     def p_integrals(self, k):
@@ -417,9 +411,8 @@ class CLEFT:
         array
             ZA power
         '''
-        ksq = k**2; kcu = k**3; k4 = k**4
+        ksq = k**2
         expon = np.exp(-0.5*ksq * (self.XYlin - self.sigma))
-        exponm1 = np.expm1(-0.5*ksq * (self.XYlin - self.sigma))
         suppress = np.exp(-0.5 * ksq *self.sigma)
 
         ret = np.zeros(self.num_power_components)

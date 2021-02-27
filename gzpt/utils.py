@@ -100,7 +100,7 @@ def sigma(M,z,mdef,P=None,kmin=1e-5,kmax=1e2,num_pts=100,cosmo=Planck15):
 
     k = np.logspace(np.log10(kmin),np.log10(kmax),num_pts)
 
-    """warning: using EdS growth"""
+    """using EdS growth"""
     def I(k):
         I = k**2 * P(k) * np.abs(W_TH(k,rDelta(M,z,mdef)))**2
         return I
@@ -267,74 +267,74 @@ def dndM(M,z,choice='Tinker',num_pts=100,cosmo=Planck15,fnu_params={}): #Make a 
 
     return dndM
 
-
-#HZPT integrals over profiles
-def hzpt_integrals(z,profile=rho_NFW,mdef='vir',cosmo=Planck15,rMin=1e-2,rMax=10,num_pts=100,integ_m=1e13,nmax=2,Mmin=10**10.5,Mmax=10**15.5,hmf_options={}):
-    """
-    HMF - callable dndM mass function
-    z - redshift, float
-    """
-
-    def I0(r,M):
-        return 4*np.pi/M * r**2 *profile(r,M,z)
-
-    def I1(r,M):
-        return 4*np.pi/M/6 * r**4 *profile(r,M,z)
-
-    def I2(r,M):
-        return 4*np.pi/M/120 * r**6 *profile(r,M,z)
-
-    rr = np.logspace(np.log10(rMin),np.log10(rMax),num_pts)
-    m = np.logspace(np.log10(Mmin),np.log10(Mmax),num_pts)
-    mbrmsq = (m/(cosmo.rho_m(z)*1e10))**2
-
-    #In this function, for all integrals we take the postiive sqrt/4thrt soln since it is the only one that makes sense
-    #It will not matter if the "bare" R_n(h) is positive or negaive because it only enters as squared or ^4 - we don't permit imaginary R
-
-    integrals,integrands=[],[]
-    @np.vectorize
-    def F0(M):
-         rr = np.logspace(np.log10(rMin),np.log10(rDelta(M,z,mdef=mdef)),num_pts)
-         return np.trapz(I0(rr,M),x=rr)
-    integrands.append(I0(rr,integ_m))
-    A0 = np.trapz(dndM(m,z,**hmf_options) * mbrmsq * F0(m)**2,x=m)
-    integrals.append(A0)
-    def pade(k):
-        return A0
-
-    if(nmax>=1):
-        @np.vectorize
-        def F1(M):
-            rr = np.logspace(np.log10(rMin),np.log10(rDelta(M,z,mdef=mdef)),num_pts)
-            return np.trapz(I1(rr,M),x=rr)
-        integrands.append(I1(rr,integ_m))
-        R1bar = (np.trapz(dndM(m,z,**hmf_options) * mbrmsq * 2.*F1(m)*F0(m),x=m)/A0)**(1/2) #this term has a minus sign in front of it!
-        integrals.append(R1bar)
-        R1h0 = R1bar
-        def pade(k):
-            pade = 1./(1. + k**2 * R1h0**2)
-
-        if(nmax==2):
-            @np.vectorize
-            def F2(M):
-                rr = np.logspace(np.log10(rMin),np.log10(rDelta(M,z,mdef=mdef)),num_pts)
-                return np.trapz(I2(rr,M),x=rr)
-            integrands.append(I2(rr,integ_m))
-            R2bar = (np.trapz(dndM(m,z,**hmf_options) * mbrmsq * (F1(m)**2 + 2.*F0(m)*F2(m)),x=m)/A0)**(1/4)
-            integrals.append(R2bar)
-            Q = R1bar**4 - R2bar**4
-            R1h = (R1bar**2 * R2bar**4 /Q)**(1/2)
-            R1 = (R1bar**2 *(R1bar**4 - 2.*R2bar**4) / Q)**(1/2)
-            R2h = (R2bar**8 / Q)**(1/4)
-
-            def pade(k):
-                pade = (1. - k**2 * R1**2)/(1. + k**2 * R1h**2 + k**4 * R2h**4)
-
-    if(integ_m is not None):
-        return integrals,pade,integrands,rr
-    else:
-        return integrals,pade
-
+#These don't actually work
+# #HZPT integrals over profiles
+# def hzpt_integrals(z,profile=rho_NFW,mdef='vir',cosmo=Planck15,rMin=1e-2,rMax=10,num_pts=100,integ_m=1e13,nmax=2,Mmin=10**10.5,Mmax=10**15.5,hmf_options={}):
+#     """
+#     HMF - callable dndM mass function
+#     z - redshift, float
+#     """
+#
+#     def I0(r,M):
+#         return 4*np.pi/M * r**2 *profile(r,M,z)
+#
+#     def I1(r,M):
+#         return 4*np.pi/M/6 * r**4 *profile(r,M,z)
+#
+#     def I2(r,M):
+#         return 4*np.pi/M/120 * r**6 *profile(r,M,z)
+#
+#     rr = np.logspace(np.log10(rMin),np.log10(rMax),num_pts)
+#     m = np.logspace(np.log10(Mmin),np.log10(Mmax),num_pts)
+#     mbrmsq = (m/(cosmo.rho_m(z)*1e10))**2
+#
+#     #In this function, for all integrals we take the postiive sqrt/4thrt soln since it is the only one that makes sense
+#     #It will not matter if the "bare" R_n(h) is positive or negaive because it only enters as squared or ^4 - we don't permit imaginary R
+#
+#     integrals,integrands=[],[]
+#     @np.vectorize
+#     def F0(M):
+#          rr = np.logspace(np.log10(rMin),np.log10(rDelta(M,z,mdef=mdef)),num_pts)
+#          return np.trapz(I0(rr,M),x=rr)
+#     integrands.append(I0(rr,integ_m))
+#     A0 = np.trapz(dndM(m,z,**hmf_options) * mbrmsq * F0(m)**2,x=m)
+#     integrals.append(A0)
+#     def pade(k):
+#         return A0
+#
+#     if(nmax>=1):
+#         @np.vectorize
+#         def F1(M):
+#             rr = np.logspace(np.log10(rMin),np.log10(rDelta(M,z,mdef=mdef)),num_pts)
+#             return np.trapz(I1(rr,M),x=rr)
+#         integrands.append(I1(rr,integ_m))
+#         R1bar = (np.trapz(dndM(m,z,**hmf_options) * mbrmsq * 2.*F1(m)*F0(m),x=m)/A0)**(1/2) #this term has a minus sign in front of it!
+#         integrals.append(R1bar)
+#         R1h0 = R1bar
+#         def pade(k):
+#             pade = 1./(1. + k**2 * R1h0**2)
+#
+#         if(nmax==2):
+#             @np.vectorize
+#             def F2(M):
+#                 rr = np.logspace(np.log10(rMin),np.log10(rDelta(M,z,mdef=mdef)),num_pts)
+#                 return np.trapz(I2(rr,M),x=rr)
+#             integrands.append(I2(rr,integ_m))
+#             R2bar = (np.trapz(dndM(m,z,**hmf_options) * mbrmsq * (F1(m)**2 + 2.*F0(m)*F2(m)),x=m)/A0)**(1/4)
+#             integrals.append(R2bar)
+#             Q = R1bar**4 - R2bar**4
+#             R1h = (R1bar**2 * R2bar**4 /Q)**(1/2)
+#             R1 = (R1bar**2 *(R1bar**4 - 2.*R2bar**4) / Q)**(1/2)
+#             R2h = (R2bar**8 / Q)**(1/4)
+#
+#             def pade(k):
+#                 pade = (1. - k**2 * R1**2)/(1. + k**2 * R1h**2 + k**4 * R2h**4)
+#
+#     if(integ_m is not None):
+#         return integrals,pade,integrands,rr
+#     else:
+#         return integrals,pade
+#
 
 def b_Tinker(M,z):
     '''Tinker 2010 halo bias - to get initial guess for b1'''
@@ -354,4 +354,4 @@ def b_Tinker(M,z):
 
     return 1 - A*(nu**a / (nu**a + delta_c**a)) + B*nu**b + C*nu**c
 
-'''Check consistency constraint!'''
+#   z'''Check consistency constraint!'''
