@@ -439,7 +439,7 @@ class CrossCorrelator(hzpt):
         (array (float), array (float), [array (float)])
             projected radius rp, projected correlation function wp, gradient if wanted
         """
-        #FIXME: turns out do not actually need this (it works though)- we are not computing tangential shear...might later
+        #FIXME: do not actually need this (it works though)- we are not computing tangential shear...might later
         # def inv_Sigma_crit(Ds,Dl,zl):
         #     c=2.99792e5 #km/s
         #     G=4.30071e-9 #Mpc (km/s)**2 * M_sun^-1
@@ -480,8 +480,7 @@ class CrossCorrelator(hzpt):
         t3 = (rpMin/rpint)**2 * (DS0 + S0) #compute Sigma_0 from Singh 18 eqn. 30
         DS=t1+t2+t3
 
-        if(wantGrad): #This probably wont work so come back and check it
-            #just constants and sums
+        if(wantGrad): #FIXME: test for this
             grad_wpgm_int_c = np.zeros((len(rpint_c),grad_wpgm.shape[1]))
             for i in range(grad_wpgm.shape[1]):
                 grad_wpgm_int[:,i] = np.interp(rpint,rp,grad_wpgm[:,i])

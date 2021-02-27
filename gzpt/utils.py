@@ -122,7 +122,6 @@ def nusq(M,z):
     return nu
 
 #Concentration
-
 def c_duffy(M,z,mdef='vir'):
     "Duffy 2008 concentration"
     #add 200c
@@ -151,55 +150,56 @@ def rho_NFW(r,M,z,conc_relation=c_duffy,mdef='vir'):
 
     return norm*form(r)
 
-def rho_DK14ext(r,M,z,cosmo=Planck15):
-    """Modified form of Deimer + Kravtsov 2014 - use NFW instead of Einasto for inner profile, choose fixed paramters for outer profile.
-    Goal is simply qualitative inclusion of the outer halo mass transition."""
-
-    ftrans = (1 + .2*(r/rDelta(M,z,mdef='200m'))**4 )**-(nusq(M,z)**(1/2))
-    print("warning: normalization for DK14 is not correct - b_e is fixed")
-    b_e = 1.5 #not 2halo adjusted or scaling appropriately with redshift
-    s_e = 1.5
-    outer = cosmo.rho_m(z)*1e10 * (b_e *(r/(5*rDelta(M,z,mdef='200m')))**-s_e +1)
-
-    return rho_NFW(r,M,z,mdef='200m')*ftrans +outer
-
-
-def rho_BCM(r,M,z,cosmo=Planck15):
-    """Profile with baryonic corrections of Schneider ++ 2019, 2015 using a particular choice of baryon paramters.
-    Goal is simply qualitative inclusion of baryonic effects."""
-    print("Watch out - this profile is defined in terms of r200c, make sure you convert (because noting else is defined in 200c)!")
-    #using "true values" of Schnieder et al.
-    eta_c = 0.6
-    eta_s = .32
-    mu = .21
-    M_c = 10**13.8
-    theta_ej = 4
-    beta = 3-(M_c/M)**mu
-
-    f_star = 0.09*(M/2.5e11)**-eta_s
-    f_cga = 0.09*(M/2.5e11)**-eta_c
-    f_sga = f_star-f_cga
-    f_gas = cosmo.Omega_b(z)/cosmo.Omega_m(z) - f_star
-
-    r200c = rDelta(M,z,mdef='200c')
-    r_co = 0.1*r200c
-    r_ej = theta_ej*r200c
-    Rh = 0.015*r200c
-
-    norm1 = M/(np.pi**(3/2) * 4. * Rh)
-
-    term1 = norm1 * (f_cga/r**2 * np.exp(-(r/Rh/2.)**2))
-
-    term2 = (cosmo.Omega_cdm(z)/cosmo.Omega_m(z)+ f_sga) *rho_NFW(r,M,z)
-
-    def term3(r):
-        return (1/ ((1 + r/r_co)**(beta) * (1+(r/r_ej)**2)**(.5*(7-beta))))
-    rint = np.logspace(-2,r200c)
-    norm3 = f_gas * M/(4.*np.pi) * (np.trapz(term3(rint),rint))**-1
-
-    term3 = norm3*term3(r)
-
-    return term1 + term2 + term3
+# Ended up using different functions - these are incomplete
+# def rho_DK14ext(r,M,z,cosmo=Planck15):
+#     """Modified form of Deimer + Kravtsov 2014 - use NFW instead of Einasto for inner profile, choose fixed paramters for outer profile.
+#     Qualitative inclusion of the outer halo mass transition."""
+#
+#     ftrans = (1 + .2*(r/rDelta(M,z,mdef='200m'))**4 )**-(nusq(M,z)**(1/2))
+#     #FIXME print("warning: normalization for DK14 is not correct - b_e is fixed")
+#     b_e = 1.5 #not 2halo adjusted or scaling appropriately with redshift
+#     s_e = 1.5
+#     outer = cosmo.rho_m(z)*1e10 * (b_e *(r/(5*rDelta(M,z,mdef='200m')))**-s_e +1)
+#
+#     return rho_NFW(r,M,z,mdef='200m')*ftrans +outer
+#
+#
+# def rho_BCM(r,M,z,cosmo=Planck15):
+#     """Profile with baryonic corrections of Schneider ++ 2019, 2015 using a particular choice of baryon paramters.
+#     Goal is simply qualitative inclusion of baryonic effects."""
+#     print("Watch out - this profile is defined in terms of r200c, make sure you convert (because noting else is defined in 200c)!")
+#     #using "true values" of Schnieder et al.
+#     eta_c = 0.6
+#     eta_s = .32
+#     mu = .21
+#     M_c = 10**13.8
+#     theta_ej = 4
+#     beta = 3-(M_c/M)**mu
+#
+#     f_star = 0.09*(M/2.5e11)**-eta_s
+#     f_cga = 0.09*(M/2.5e11)**-eta_c
+#     f_sga = f_star-f_cga
+#     f_gas = cosmo.Omega_b(z)/cosmo.Omega_m(z) - f_star
+#
+#     r200c = rDelta(M,z,mdef='200c')
+#     r_co = 0.1*r200c
+#     r_ej = theta_ej*r200c
+#     Rh = 0.015*r200c
+#
+#     norm1 = M/(np.pi**(3/2) * 4. * Rh)
+#
+#     term1 = norm1 * (f_cga/r**2 * np.exp(-(r/Rh/2.)**2))
+#
+#     term2 = (cosmo.Omega_cdm(z)/cosmo.Omega_m(z)+ f_sga) *rho_NFW(r,M,z)
+#
+#     def term3(r):
+#         return (1/ ((1 + r/r_co)**(beta) * (1+(r/r_ej)**2)**(.5*(7-beta))))
+#     rint = np.logspace(-2,r200c)
+#     norm3 = f_gas * M/(4.*np.pi) * (np.trapz(term3(rint),rint))**-1
+#
+#     term3 = norm3*term3(r)
+#
+#     return term1 + term2 + term3
 
 #Mass functions
 def ST(nu,
@@ -231,20 +231,15 @@ def Tinker(nu,z):
 
 
 def dndM(M,z,choice='Tinker',num_pts=100,cosmo=Planck15,fnu_params={}): #Make a class
-    # def mass_cutoff():
-    #     """"Mass conserving cutoff of Schmidt 2016"""
-    #
-    # def consistency(): #don't really need if no bias...
     nu = nusq(M,z)**(1/2) #peak height should always use Lagrangian sigma
 
     if(choice=='ST'):
-        #print("warning, these limits are made up - check them!")
-        print("Using ST, assumes Mvir")
+        #print("Using ST, assumes Mvir")
         #Mmin = 1e10
         #Mmax = 1e16
         fnu = ST(nu,**fnu_params) #nu**1/2?
     elif(choice=='Tinker'):
-        print("Using Tinker, assumes M200m")
+        #print("Using Tinker, assumes M200m")
         #print("warning: using Planck15, cosmology should probably be WMAP9?")
         #calibrated range of Tinker - I have checked this integrates to 1
         #Mmin = 10**10.2
@@ -267,75 +262,6 @@ def dndM(M,z,choice='Tinker',num_pts=100,cosmo=Planck15,fnu_params={}): #Make a 
 
     return dndM
 
-#These don't actually work
-# #HZPT integrals over profiles
-# def hzpt_integrals(z,profile=rho_NFW,mdef='vir',cosmo=Planck15,rMin=1e-2,rMax=10,num_pts=100,integ_m=1e13,nmax=2,Mmin=10**10.5,Mmax=10**15.5,hmf_options={}):
-#     """
-#     HMF - callable dndM mass function
-#     z - redshift, float
-#     """
-#
-#     def I0(r,M):
-#         return 4*np.pi/M * r**2 *profile(r,M,z)
-#
-#     def I1(r,M):
-#         return 4*np.pi/M/6 * r**4 *profile(r,M,z)
-#
-#     def I2(r,M):
-#         return 4*np.pi/M/120 * r**6 *profile(r,M,z)
-#
-#     rr = np.logspace(np.log10(rMin),np.log10(rMax),num_pts)
-#     m = np.logspace(np.log10(Mmin),np.log10(Mmax),num_pts)
-#     mbrmsq = (m/(cosmo.rho_m(z)*1e10))**2
-#
-#     #In this function, for all integrals we take the postiive sqrt/4thrt soln since it is the only one that makes sense
-#     #It will not matter if the "bare" R_n(h) is positive or negaive because it only enters as squared or ^4 - we don't permit imaginary R
-#
-#     integrals,integrands=[],[]
-#     @np.vectorize
-#     def F0(M):
-#          rr = np.logspace(np.log10(rMin),np.log10(rDelta(M,z,mdef=mdef)),num_pts)
-#          return np.trapz(I0(rr,M),x=rr)
-#     integrands.append(I0(rr,integ_m))
-#     A0 = np.trapz(dndM(m,z,**hmf_options) * mbrmsq * F0(m)**2,x=m)
-#     integrals.append(A0)
-#     def pade(k):
-#         return A0
-#
-#     if(nmax>=1):
-#         @np.vectorize
-#         def F1(M):
-#             rr = np.logspace(np.log10(rMin),np.log10(rDelta(M,z,mdef=mdef)),num_pts)
-#             return np.trapz(I1(rr,M),x=rr)
-#         integrands.append(I1(rr,integ_m))
-#         R1bar = (np.trapz(dndM(m,z,**hmf_options) * mbrmsq * 2.*F1(m)*F0(m),x=m)/A0)**(1/2) #this term has a minus sign in front of it!
-#         integrals.append(R1bar)
-#         R1h0 = R1bar
-#         def pade(k):
-#             pade = 1./(1. + k**2 * R1h0**2)
-#
-#         if(nmax==2):
-#             @np.vectorize
-#             def F2(M):
-#                 rr = np.logspace(np.log10(rMin),np.log10(rDelta(M,z,mdef=mdef)),num_pts)
-#                 return np.trapz(I2(rr,M),x=rr)
-#             integrands.append(I2(rr,integ_m))
-#             R2bar = (np.trapz(dndM(m,z,**hmf_options) * mbrmsq * (F1(m)**2 + 2.*F0(m)*F2(m)),x=m)/A0)**(1/4)
-#             integrals.append(R2bar)
-#             Q = R1bar**4 - R2bar**4
-#             R1h = (R1bar**2 * R2bar**4 /Q)**(1/2)
-#             R1 = (R1bar**2 *(R1bar**4 - 2.*R2bar**4) / Q)**(1/2)
-#             R2h = (R2bar**8 / Q)**(1/4)
-#
-#             def pade(k):
-#                 pade = (1. - k**2 * R1**2)/(1. + k**2 * R1h**2 + k**4 * R2h**4)
-#
-#     if(integ_m is not None):
-#         return integrals,pade,integrands,rr
-#     else:
-#         return integrals,pade
-#
-
 def b_Tinker(M,z):
     '''Tinker 2010 halo bias - to get initial guess for b1'''
     nu = np.sqrt(nusq(M,z))
@@ -353,5 +279,3 @@ def b_Tinker(M,z):
     c = 2.4
 
     return 1 - A*(nu**a / (nu**a + delta_c**a)) + B*nu**b + C*nu**c
-
-#   z'''Check consistency constraint!'''

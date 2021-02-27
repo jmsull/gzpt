@@ -21,7 +21,7 @@ class hzpt:
 
     Examples
     --------
-    >>> k,plin = np.loatxt("my_linear_power_file.txt",unpack=True)
+    >>> k,plin = np.loadtxt("my_linear_power_file.txt",unpack=True)
     >>> z = 0.5
     >>> model = gzpt.hzpt(k,plin,z)
     >>> mm = matter.Correlator(model,nmax=1)
@@ -41,16 +41,9 @@ class hzpt:
     >>> wgg,grad_wgg = gg.wp(r,wantGrad=True)
 
     """
-    #FOR NOW will only support single z, but can come back to this later
-    def __init__(self,klin,plin,z):
-        #self.cosmo = cosmo
-        self.z = z #I think the z dependence is unnecessary...
+    #FOR NOW: will only support single z, but can come back to this later
+    def __init__(self,klin,plin):
         self.plin = loginterp(klin,plin) #interpolator
-        #cache the necessary cosmo distance quantities for DS and shear (bin-independent) - later
-        # self.chi_z = cosmo.comoving_distance
-        # self.z_chi = ius(chi,z)
-        # self.dchidz = ...
-        # self.Dz = cosmo.comoving_transverse_distance
 
         #compute ZA
         self.cleft = CLEFT(klin,plin)
