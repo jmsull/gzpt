@@ -4,7 +4,7 @@ from gzpt import zel,matter,tracers
 import numpy as np
 import os
 
-def test_gradients_exist():
+def test_gradients():
     #arbitrarily select reasonable parameter values
 
     #finite difference
@@ -18,29 +18,51 @@ def test_gradients_exist():
     ktest = np.logspace(-3,1,1000)
     rtest = np.logspace(-1,3,1000)
 
-    #matter
-    test_mm_params = np.array([350., 26., 5.5, 15., 1.9])
-    mm = matter.Correlator(test_mm_params,model)
-    Pmm_test,Pmm_grad = mm.Power(wantGrad=True)(ktest)
-    Pmm_p =
-    Pmm_m =
-    Pmm_fd =
-    ximm_test,ximm_grad = mm.Xi(wantGrad=True)(rtest)
-    #assert ~np.any(np.isnan(Pmm_grad)), \
-    assert np.allclose((delta)/(2*eps*mm_ps[i]),gradsk[:,i],rtol=rtol,atol=atol)
-    "matter.Power gradient does not exist"
-    assert ~np.any(np.isnan(ximm_grad)), \
-    "matter.Xi gradient does not exist"
+    #BB
+    mm_ps = np.array([350., 26., 5.5, 15., 1.9])
 
-    #tracer-matter
-    test_tm_params = np.array([2.,350., 26., 5.5, 15., 1.9])
-    tm = tracers.CrossCorrelator(test_tm_params,model)
-    Ptm_test,Ptm_grad = tm.Power(wantGrad=True)(ktest)
-    xitm_test,xitm_grad = tm.Xi(wantGrad=True)(rtest)
-    assert ~np.any(np.isnan(Ptm_grad)), \
-    "tracer.CrossCorrelator.Power gradient does not exist"
-    assert ~np.any(np.isnan(xitm_grad)), \
-    "tracer.CrossCorrelator.Xi gradient does not exist"
+    #nmax=1
+    mm = matter.Correlator(mm_ps[:-2],model)
+    ind = np.ones(3)
+    gradsk1 = mm.Power(wantGrad=True)(ktest)[1]
+    gradsr1 = mm.Xi(wantGrad=True)(rtest)[1]
+    for i in range(3):
+        indp,indm = np.copy(ind),np.copy(ind)
+        indp[i]+=eps
+        indm[i]-=eps
+        mplu = (matter.Correlator(mm_ps[:-2]*indp ,model))
+        mmin = (matter.Correlator(mm_ps[:-2]*indm ,model))
+        delta = (mplu.Power()(ktest)-mmin.Power()(ktest))
+        assert np.allclose((delta)/(2*eps*mm_ps[:-2][i]),gradsk1[:,i],rtol=rtol,atol=atol), \
+        "FS nmax=1 gradient test failed!"
+        #CS
+        mplu = (matter.Correlator(mm_ps[:-2]*indp ,model))
+        mmin = (matter.Correlator(mm_ps[:-2]*indm ,model))
+        delta = (mplu.Xi()(rtest)-mmin.Xi()(rtest))
+        assert np.allclose((delta)/(2*eps*mm_ps[:-2][i]),gradsr1[:,i],rtol=rtol,atol=atol), \
+        "CS nmax=1 gradient test failed!"
+
+    #nmax=2
+    ind = np.ones(5)
+    mm = matter.Correlator(mm_ps,model)
+    gradsk = mm.Power(wantGrad=True)(ktest)[1]
+    gradsr = mm.Xi(wantGrad=True)(rtest)[1]
+    for i in range(5):
+        indp,indm = np.copy(ind),np.copy(ind)
+        indp[i]+=eps
+        indm[i]-=eps
+        #FS
+        mplu = (matter.Correlator(mm_ps*indp ,model))
+        mmin = (matter.Correlator(mm_ps*indm ,model))
+        delta = (mplu.Power()(ktest)-mmin.Power()(ktest))
+        assert np.allclose((deltak)/(2*eps*mm_ps[i]),gradsk[:,i],rtol=rtol,atol=atol), \
+        "FS nmax=2 gradient test failed!"
+        #CS
+        mplu = (matter.Correlator(mm_ps*indp ,model))
+        mmin = (matter.Correlator(mm_ps*indm ,model))
+        delta = (mplu.Xi()(rtest)-mmin.Xi()(rtest))
+        assert np.allclose((delta)/(2*eps*mm_ps[i]),gradsr[:,i],rtol=rtol,atol=atol), \
+        "CS nmax=2 gradient test failed!"
 
     #tracer-tracer
     test_tt_params = np.array([1e-4,2.,350., 26., 5.5, 2., .1, 1e3, 1])
@@ -54,7 +76,7 @@ def test_gradients_exist():
     "tracer.AutoCorrelator.Xi gradient does not exist"
 
     #projected statistics
-    rpwp,wpgg,wpgg_grad = ttno.wp(rtest,wantGrad=True)
+    rpwp,wpgg,wpgg_grad = tt.wp(rtest,wantGrad=True)
     #made up test values for DS
     rpDS,DSgm,DSgm_grad = tm.Delta_Sigma(rtest,12,1e3,.8e3,1,3e11,wantGrad=True)
     assert ~np.any(np.isnan(wpgg_grad)), \

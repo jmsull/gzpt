@@ -138,69 +138,6 @@ def c_duffy(M,z,mdef='vir'):
     M0 = 2e12
     return a * (M/M0)**b * (1+z)**c
 
-#Profiles
-def rho_NFW(r,M,z,conc_relation=c_duffy,mdef='vir'):
-    c = conc_relation(M,z,mdef=mdef)
-    rS =  rDelta(M,z,mdef=mdef)/c
-
-    def form(r):
-        return ((r/rS)*(1 + r/rS)**2)**-1
-    rint = np.logspace(-3,np.log10(rDelta(M,z,mdef=mdef)))
-    norm = Delta(z,mdef)*M/(4*np.pi) * (np.trapz(form(rint)*Delta(z,mdef)*rint**2,rint))**-1#M * (4*np.pi*rS**3 *(np.log(1+c) - c/(1+c)))**-1
-
-    return norm*form(r)
-
-# Ended up using different functions - these are incomplete
-# def rho_DK14ext(r,M,z,cosmo=Planck15):
-#     """Modified form of Deimer + Kravtsov 2014 - use NFW instead of Einasto for inner profile, choose fixed paramters for outer profile.
-#     Qualitative inclusion of the outer halo mass transition."""
-#
-#     ftrans = (1 + .2*(r/rDelta(M,z,mdef='200m'))**4 )**-(nusq(M,z)**(1/2))
-#     #FIXME print("warning: normalization for DK14 is not correct - b_e is fixed")
-#     b_e = 1.5 #not 2halo adjusted or scaling appropriately with redshift
-#     s_e = 1.5
-#     outer = cosmo.rho_m(z)*1e10 * (b_e *(r/(5*rDelta(M,z,mdef='200m')))**-s_e +1)
-#
-#     return rho_NFW(r,M,z,mdef='200m')*ftrans +outer
-#
-#
-# def rho_BCM(r,M,z,cosmo=Planck15):
-#     """Profile with baryonic corrections of Schneider ++ 2019, 2015 using a particular choice of baryon paramters.
-#     Goal is simply qualitative inclusion of baryonic effects."""
-#     print("Watch out - this profile is defined in terms of r200c, make sure you convert (because noting else is defined in 200c)!")
-#     #using "true values" of Schnieder et al.
-#     eta_c = 0.6
-#     eta_s = .32
-#     mu = .21
-#     M_c = 10**13.8
-#     theta_ej = 4
-#     beta = 3-(M_c/M)**mu
-#
-#     f_star = 0.09*(M/2.5e11)**-eta_s
-#     f_cga = 0.09*(M/2.5e11)**-eta_c
-#     f_sga = f_star-f_cga
-#     f_gas = cosmo.Omega_b(z)/cosmo.Omega_m(z) - f_star
-#
-#     r200c = rDelta(M,z,mdef='200c')
-#     r_co = 0.1*r200c
-#     r_ej = theta_ej*r200c
-#     Rh = 0.015*r200c
-#
-#     norm1 = M/(np.pi**(3/2) * 4. * Rh)
-#
-#     term1 = norm1 * (f_cga/r**2 * np.exp(-(r/Rh/2.)**2))
-#
-#     term2 = (cosmo.Omega_cdm(z)/cosmo.Omega_m(z)+ f_sga) *rho_NFW(r,M,z)
-#
-#     def term3(r):
-#         return (1/ ((1 + r/r_co)**(beta) * (1+(r/r_ej)**2)**(.5*(7-beta))))
-#     rint = np.logspace(-2,r200c)
-#     norm3 = f_gas * M/(4.*np.pi) * (np.trapz(term3(rint),rint))**-1
-#
-#     term3 = norm3*term3(r)
-#
-#     return term1 + term2 + term3
-
 #Mass functions
 def ST(nu,
        p=0.3,
