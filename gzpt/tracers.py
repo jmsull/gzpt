@@ -6,12 +6,9 @@ from numpy import inf
 from scipy.special import erf,gamma,poch
 from scipy.interpolate import InterpolatedUnivariateSpline as ius
 from scipy.integrate import cumtrapz
-from scipy.signal import convolve
 
 class AutoCorrelator(hzpt):
-    '''hzpt object provides:
-    '''
-    def __init__(self,params,hzpt,useExc=True):
+    def __init__(self,params,hzpt,params_exc=None,params_sat=None):
         '''
         Parameters
         ----------
@@ -21,10 +18,18 @@ class AutoCorrelator(hzpt):
             Hzpt base class that holds the linear, zeldovich, and z information.
         useExc : boolean,optional
             Whether or not to use exclusion in the model.
+        useExc : boolean,optional
+            Whether or not to add 2-paramter satellite BB term to the model.
         '''
-        self.params = params
+        self.params = []
+        self.params.append(params)
         self.nmax = min((len(self.params[2:])-1)//2,2)
-        self.useExc = useExc
+        if(params_exc is not None):
+            self.useExc = useExc
+            self.params.append(params_exc)
+        if(params_exc is not None):
+            self.useSat = useSat
+            self.params.append(params_sat)
         self.hzpt = hzpt
 
     def Fk_excl(self,k,R_excl,wantGrad=False):
@@ -75,11 +80,17 @@ class AutoCorrelator(hzpt):
 
 
     def convolve(k,x,y):
-
         #FIXME most naive implementation, could do better with just about anything else for the integral
-
-
+        #Do the N^2 operation, assume (probably bad) that not zero padding is fine
+        #It would be better (for all N>100) to do the fft convolution
+        A,B = ius(k,x,ext=1),ius(k,y,ext=1)
+        logdelta = np.log(k[1:]/k[:-1])
+        N = len(k)
+        res = np.zeros(N)
+        for i in range(N):
+            res[i] = np.trapz(A(abs(k-k[i]))*B(k),x=k)
         return res
+
 
     def Power(self,wantGrad=False):
         '''
@@ -92,74 +103,55 @@ class AutoCorrelator(hzpt):
         callable
             Power spectrum in k (h/Mpc)
         '''
-        if(not self.useExc):
-            nbar,b1,pparams = self.params[0],self.params[1],self.params[2:]
-        elif(self.nmax==1):
-            nbar,b1,pparams,eparams =  self.params[0],self.params[1],self.params[2:-1],self.params[-1:]
-        elif(self.nmax==2):
-            nbar,b1,pparams,eparams,ohparams = self.params[0],self.params[1],self.params[2:-3],self.params[-3:-2],self.params[-2:]
+        #Do some parameter juggling - unfortunate that this is repeated for Xi, FIXME
+        if(self.useExc and self.useSat):
+            nbar,b1,pparams,eparams = self.params[1],self.params[2:2+(2*self.nmax)],self.params[2+(2*self.nmax):-2]
+        elif(self.useExc and ~self.useSat):
+            nbar,b1,pparams,eparams = self.params[1],self.params[2:2+(2*self.nmax)],self.params[2+(2*self.nmax):]
+        elif(~self.useExc and self.useSat):
+            b1,pparams = self.params[1],self.params[2:2+(2*self.nmax)]
         else:
-            raise(NotImplementedError)
+            b1,pparams = self.params[1],self.params[2:]
+
+        if(len(eparams)>1):
+            raise NotImplementedError("Power exclusion is only implemented for the Exp model. Please use FFTLog.")
 
         def Pk(k):
+            #Set BB
             if(wantGrad):
-                bb,bb_grad = PBB(k,pparams,nmax=self.nmax,wantGrad=True)
+                grads=[]
+                bb,bbgrad = PBB(k,pparams,nmax=self.nmax,wantGrad=True)
                 p = 1/nbar + b1**2 * (self.hzpt.P_zel(k) + bb)
                 nbar_grad = -(1/nbar**2) *np.ones(len(k))
                 b1_grad = 2*(p- 1/nbar)/b1
-                grad_p  = np.hstack([np.atleast_2d(nbar_grad).T,
-                                     np.atleast_2d(b1_grad).T,
-                                     b1**2 * bb_grad])
-                return p,grad_p
+                grads.append(np.atleast_2d(nbar_grad).T)
+                grads.append(np.atleast_2d(b1_grad).T)
+                grads.append(b1**2 * bbgrad)
             else:
-                return 1/nbar + b1**2 * (self.hzpt.P_zel(k) + bb)
+                bb = XiBB(r,pparams,nmax=self.nmax)
+                p = 1/nbar + b1**2 * (self.hzpt.P_zel(k) + bb)
+                nbar_grad = -(1/nbar**2) *np.ones(len(k))
+                b1_grad = 2*(p- 1/nbar)/b1
+
+            #Set exclusion
+            if(self.useExc):
+                R=eparams
+                pc = p-1/nbar
+                if(wantGrad):
+                    exclusion_func,e_f_grad = self.Fk_excl(k,R,wantGrad=True)
+                    grad_Re = e_f_grad + convolve(e_f_grad,pc)
+                    grads.append(np.atleast_2d(grad_Re).T)
+                else:
+                    exclusion_func =  self.Fk_excl(k,R,wantGrad=True)
+                exclusion = exclusion_func + convolve(exclusion_func,pc)
+            else:
+                exclusion =0  #no exclusion (additive)
+
+            #put it together
+            if(wantGrad): return p + exclusion, np.hstack(grads)
+            else: return p + exclusion
         return Pk
 
-    #copied from xi, need to do a similar thing for P
-    #FIXME unpack utility for params
-    if(self.useExc):
-        if(self.nmax==1):
-            b1,pparams,eparams = self.params[1],self.params[2:-2],self.params[-2:]
-        elif(self.nmax==2):
-            b1,pparams,eparams,ohparams = self.params[1],self.params[2:-4],self.params[-4:-2],self.params[-2:]
-        if(len(eparams==2)):
-            R_excl,sigma_excl = eparams[0],eparams[1]
-        else:
-            R_excl,sigma_excl = eparams,None
-    else:
-        b1,pparams,eparams = self.params[1],self.params[2:],None
-
-        def
-        if(self.useExc):
-            R = eparams
-            if(wantGrad):
-                exclusion,e_grad = self.Fk_excl(k,R,wantGrad=True)
-                grad_Re,grad_sigmae = e_grad
-            else:
-                exclusion = self.Fk_excl(r,R,sigma)
-        else:
-            exclusion=1.
-
-        if(wantGrad):
-                bb,bbgrad = XiBB(r,pparams,nmax=self.nmax,wantGrad=True)
-                xic = b1**2 * (self.hzpt.Xi_zel(r) + bb)
-                xi_baldauf_d = exclusion*(1. + xic) - 1.
-                b1_grad = 2.*xic/b1
-                if(self.useExc):
-                    return xi_baldauf_d,np.hstack([np.atleast_2d(b1_grad).T,
-                                                   b1**2 * bbgrad,
-                                                   np.atleast_2d(grad_Re*(1. + xic)).T,
-                                                   np.atleast_2d(grad_sigmae*(1. + xic)).T
-                                                   ])
-                else:
-                    return xi_baldauf_d,np.hstack([np.atleast_2d(b1_grad).T,
-                                                   b1**2 * bbgrad])
-            else:
-                xihzpt = b1**2 * (self.hzpt.Xi_zel(r)+ XiBB(r,pparams,nmax=self.nmax))
-                xi_baldauf_d = exclusion*(1+xihzpt)-1
-                return xi_baldauf_d
-
-    return xi
 
     def Fr_excl(self,r,R_excl,sigma_excl=None,wantGrad=False):
         '''
@@ -205,7 +197,6 @@ class AutoCorrelator(hzpt):
 
     def Xi(self,wantGrad=False):
         '''
-        This function is a mess - come back and clean it up!
         Parameters
         ----------
         wantGrad : boolean,optional
@@ -215,76 +206,64 @@ class AutoCorrelator(hzpt):
         callable
             2pcf function of r (Mpc/h)
         '''
-        if(self.useExc):
-            if(self.nmax==1):
-                b1,pparams,eparams = self.params[1],self.params[2:-2],self.params[-2:]
-            elif(self.nmax==2):
-                b1,pparams,eparams,ohparams = self.params[1],self.params[2:-4],self.params[-4:-2],self.params[-2:]
-            if(len(eparams==2)):
-                R_excl,sigma_excl = eparams[0],eparams[1]
-            else:
-                R_excl,sigma_excl = eparams,None
+        if(self.useExc and self.useSat):
+            b1,pparams,eparams,sparams = self.params[1],self.params[2:2+(2*self.nmax)],self.params[2+(2*self.nmax):-2],self.params[-2:]
+        elif(self.useExc and ~self.useSat):
+            b1,pparams,eparams = self.params[1],self.params[2:2+(2*self.nmax)],self.params[2+(2*self.nmax):]
+            sparams=None
+        elif(~self.useExc and self.useSat):
+            b1,pparams,sparams = self.params[1],self.params[2:2+(2*self.nmax)],self.params[2+(2*self.nmax):]
+            eparams=None
         else:
             b1,pparams,eparams = self.params[1],self.params[2:],None
+            eparams,sparams=None,None
 
         def xi(r):
+            #Set BB
+            if(wantGrad):
+                grads=[]
+                bb,bbgrad = XiBB(r,pparams,nmax=self.nmax,wantGrad=True)
+                b1_grad = 2.*xic/b1
+                grads.append(np.atleast_2d(b1_grad).T)
+                grads.append(b1**2 * bbgrad)
+            else:
+                bb = XiBB(r,pparams,nmax=self.nmax)
+
             #Set exclusion
             if(self.useExc):
-                if(len(eparams==2)):
+                if(len(eparams==2)): #check for Exp or ExpLog model
                     R,sigma = eparams
                 else:
                     R,sigma = eparams,None
                 if(wantGrad):
                     exclusion,e_grad = self.Fr_excl(r,R,sigma,wantGrad=True)
                     grad_Re,grad_sigmae = e_grad
+                    grads.append(np.atleast_2d(grad_Re*(1. + xic)).T)
+                    grads.append(np.atleast_2d(grad_sigmae*(1. + xic)).T)
                 else:
                     exclusion = self.Fr_excl(r,R,sigma)
             else:
-                exclusion=1.
+                exclusion=1 #no exclusion (multiplicative)
 
-            if(self.nmax==2 and self.useExc):
+            #Set sattelites
+            if(self.useSat):
                 R_s_fixed=1e3 #fix compensation to effectively infinity
+                A1s,R1h1s = sparams
                 if(wantGrad):
-                    bb,bbgrad = XiBB(r,pparams,nmax=1,wantGrad=True)
-                    xic = b1**2 * (self.hzpt.Xi_zel(r) + bb)
-                    xi_baldauf_d = exclusion*(1. + xic) - 1.
-                    b1_grad = 2.*xic/b1
-                    bb_S, bbgrad_S = XiBB(r,[ohparams[0],R_s_fixed,ohparams[1]],nmax=1,wantGrad=True)
-                    if(self.useExc):
-                        return xi_baldauf_d + bb_S,np.hstack([np.atleast_2d(b1_grad).T,
-                                                              b1**2 * bbgrad,
-                                                              np.atleast_2d(grad_Re*(1. + xic)).T,
-                                                              np.atleast_2d(grad_sigmae*(1. + xic)).T,
-                                                              b1**2 * np.array([bbgrad_S[:,0],bbgrad_S[:,1]]).T
-                                                              ])
+                    satellite, satellite_grad = XiBB(r,[A1s,R_s_fixed,R1h1s],nmax=1,wantGrad=True)
+                    grads.append(b1**2 * np.array([satellite_grad[:,0],satellite_grad[:,1]]).T)
                 else:
-                    xihzpt = b1**2 * (self.hzpt.Xi_zel(r)+ XiBB(r,pparams,nmax=1))
-                    xi_baldauf_d = exclusion*(1+xihzpt)-1
-                    return xi_baldauf_d +  XiBB(r,[ohparams[0],R_s_fixed,ohparams[1]],nmax=1) #set compensation R to existing value
-
+                    satellite = XiBB(r,[A1s,R_s_fixed,R1h1s],nmax=1)
             else:
-                if(wantGrad):
-                    bb,bbgrad = XiBB(r,pparams,nmax=self.nmax,wantGrad=True)
-                    xic = b1**2 * (self.hzpt.Xi_zel(r) + bb)
-                    xi_baldauf_d = exclusion*(1. + xic) - 1.
-                    b1_grad = 2.*xic/b1
-                    if(self.useExc):
-                        return xi_baldauf_d,np.hstack([np.atleast_2d(b1_grad).T,
-                                                       b1**2 * bbgrad,
-                                                       np.atleast_2d(grad_Re*(1. + xic)).T,
-                                                       np.atleast_2d(grad_sigmae*(1. + xic)).T
-                                                       ])
-                    else:
-                        return xi_baldauf_d,np.hstack([np.atleast_2d(b1_grad).T,
-                                                       b1**2 * bbgrad])
-                else:
-                    xihzpt = b1**2 * (self.hzpt.Xi_zel(r)+ XiBB(r,pparams,nmax=self.nmax))
-                    xi_baldauf_d = exclusion*(1+xihzpt)-1
-                    return xi_baldauf_d
+                satellite=0 #no sats (additive)
 
+            #put it together
+            xic = b1**2 * (self.hzpt.Xi_zel(r) + bb)
+            xi_d = exclusion*(1. + xic) - 1.
+            if(wantGrad): return xi_d + satellite, np.hstack(grads)
+            else: return xi_d + satellite
         return xi
 
-    '''Copying for now - will move projected statistics to another file later'''
     def wp(self,rp,pi=np.linspace(0,100,100+1),rMin=0.01,wantGrad=False):
         """Projected correlation function.
         Parameters:
@@ -325,7 +304,7 @@ class CrossCorrelator(hzpt):
     def __init__(self,params,hzpt):
         #Set maximum Pade expansion order
         self.params = params
-        self.nmax = (len(self.params[1:])-1)//2
+        self.nmax = (len(self.params[1:])-1)//2 #change this
         self.hzpt = hzpt
 
     def Power(self,wantGrad=False):
@@ -413,7 +392,7 @@ class CrossCorrelator(hzpt):
                     pi=np.linspace(0,100,100+1),rpMin=1.,num_rpint=1000,wantGrad=False):
 
         """Delta Sigma GGL statistic. Lens redshift is assumed to be the CrossCorrelator attribute z.
-        Again - no redshift distribution function.
+        Simple top-hat redshift distribution.
         Parameters:
         -----------
         rp: array (float)

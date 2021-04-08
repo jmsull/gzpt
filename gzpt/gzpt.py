@@ -37,7 +37,7 @@ class hzpt:
     >>> z_source = 1
     >>> DeltaSigma_gm = gm.Delta_Sigma(r,z_source) #using default top-hat pi-bins
 
-    #Analytic gradients (of non-cosmology hzpt camb_mnu0.15_transfer_out_z0.0_rescaled.datparameters)
+    #Analytic gradients (of non-cosmology hzpt parameters)
     >>> wgg,grad_wgg = gg.wp(r,wantGrad=True)
 
     """

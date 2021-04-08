@@ -64,7 +64,7 @@ def test_gradients():
         assert np.allclose((delta)/(2*eps*mm_ps[i]),gradsr[:,i],rtol=rtol,atol=atol), \
         "CS nmax=2 gradient test failed!"
 
-    #tracer-tracer
+    #tracer-tracer - just get the bias, exclusion, sat radii
     test_tt_params = np.array([1e-4,2.,350., 26., 5.5, 2., .1, 1e3, 1])
     ttno = tracers.AutoCorrelator(test_tt_params[:5],model,useExc=False)
     tt = tracers.AutoCorrelator(test_tt_params,model,useExc=True)
@@ -75,13 +75,13 @@ def test_gradients():
     assert ~np.any(np.isnan(xitt_grad)), \
     "tracer.AutoCorrelator.Xi gradient does not exist"
 
-    #projected statistics
-    rpwp,wpgg,wpgg_grad = tt.wp(rtest,wantGrad=True)
-    #made up test values for DS
-    rpDS,DSgm,DSgm_grad = tm.Delta_Sigma(rtest,12,1e3,.8e3,1,3e11,wantGrad=True)
-    assert ~np.any(np.isnan(wpgg_grad)), \
-    "tracer.AutoCorrelator.wp gradient does not exist"
-    assert ~np.any(np.isnan(DSgm_grad)), \
-    "tracer.CrossCorrelator.DS gradient does not exist"
+    # #projected statistics - WIP
+    # rpwp,wpgg,wpgg_grad = tt.wp(rtest,wantGrad=True)
+    # #made up test values for DS
+    # rpDS,DSgm,DSgm_grad = tm.Delta_Sigma(rtest,12,1e3,.8e3,1,3e11,wantGrad=True)
+    # assert ~np.any(np.isnan(wpgg_grad)), \
+    # "tracer.AutoCorrelator.wp gradient does not exist"
+    # assert ~np.any(np.isnan(DSgm_grad)), \
+    # "tracer.CrossCorrelator.DS gradient does not exist"
 
     return None
