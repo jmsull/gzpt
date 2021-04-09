@@ -16,21 +16,22 @@ class AutoCorrelator(hzpt):
             List of current hzpt parameter values.
         hzpt : hzpt
             Hzpt base class that holds the linear, zeldovich, and z information.
-        useExc : boolean,optional
-            Whether or not to use exclusion in the model.
-        useExc : boolean,optional
-            Whether or not to add 2-paramter satellite BB term to the model.
+        params_exc : list,optional
+            Exclusion parameters, if desired.
+        params_sat : list,optional
+            Satellite parameters, if desired.
         '''
-        self.params = []
-        self.params.append(params)
+        self.params = params
         self.nmax = min((len(self.params[2:])-1)//2,2)
+        self.useExc,self.useSat = False,False
         if(params_exc is not None):
-            self.useExc = useExc
-            self.params.append(params_exc)
-        if(params_exc is not None):
-            self.useSat = useSat
-            self.params.append(params_sat)
+            self.useExc = True
+            for p in params_exc: self.params.append(p)
+        if(params_sat is not None):
+            self.useSat = True
+            for p in params_sat: self.params.append(p)
         self.hzpt = hzpt
+
 
     def Fk_excl(self,k,R_excl,wantGrad=False):
         '''
@@ -55,17 +56,20 @@ class AutoCorrelator(hzpt):
             #accumulate the sum from scratch, no convenient identities, but 5 terms seems good enough
             #mpmath does this but don't want to introduce dependency just for one function
             for k in range(nmax):
-                sum+= 1/(poch(b1,k)*poch(b2,k)) * z**k / np.factorial(k)
+                sum+= 1/(poch(b1,k)*poch(b2,k)) * z**k / np.math.factorial(k)
             return sum
 
         def _fk(k,R_excl):
             #see B.8 of paper
             #try to come back and pass arguments for 0F2 convergence
-            t1 = -R_excl**3 / 3 * gamma(7/4) * _hyp0f2(1/2,5/4,k*R_excl/4)
-            t2 =  k**2 * R_excl**5 /24 * gamma(5/4) * _hyp0f2(3/2,7/4,k*R_excl/4)
-            return t1 + t2
+            t1 = R_excl**3 / 3 * gamma(7/4) * _hyp0f2(1/2,5/4,(k*R_excl/4)**4)
+            t2 = -k**2 * R_excl**5 /24 * gamma(5/4) * _hyp0f2(3/2,7/4,(k*R_excl/4)**4)
+            return (t1 + t2)/(2*np.pi**2)
 
         F = -2*_fk(k,R_excl) + _fk(k,2**(-1/4) * R_excl)
+        #with these settings can't trust k>10/R h\Mpc
+        #Obviously this is not ideal - should use \xi exclusion!
+        if(np.any(k>10/R_excl)): F[k>10/R_excl] = 0
         if(wantGrad):
             #analytic gradient of the above expression
             t1 = -R_excl**2 * gamma(7/4) * _hyp0f2(1/2,5/4,k*R_excl/4)
@@ -73,18 +77,19 @@ class AutoCorrelator(hzpt):
             t3 = 1/6 * k**2 * R_excl**4 * gamma(9/4) * _hyp0f2(3/2,7/4,k*R_excl/4)
             t4 = 1/5040 * gamma(9/4) * k**6 * R_excl**8 * _hyp0f2(5/2,11/4,k*R_excl/4)
             grad_R = t1 + t2 + t3 + t4
+            if(np.any(k>10)): grad_R[k>10] = 0
             grad_F = [grad_R]
             return F,grad_F
         else:
             return F
 
 
-    def convolve(k,x,y):
+    def convolve(self,k,x,y):
         #FIXME most naive implementation, could do better with just about anything else for the integral
         #Do the N^2 operation, assume (probably bad) that not zero padding is fine
         #It would be better (for all N>100) to do the fft convolution
         A,B = ius(k,x,ext=1),ius(k,y,ext=1)
-        logdelta = np.log(k[1:]/k[:-1])
+        #logdelta = np.log(k[1:]/k[:-1])
         N = len(k)
         res = np.zeros(N)
         for i in range(N):
@@ -105,16 +110,13 @@ class AutoCorrelator(hzpt):
         '''
         #Do some parameter juggling - unfortunate that this is repeated for Xi, FIXME
         if(self.useExc and self.useSat):
-            nbar,b1,pparams,eparams = self.params[1],self.params[2:2+(2*self.nmax)],self.params[2+(2*self.nmax):-2]
+            nbar,b1,pparams,eparams = self.params[0],self.params[1],self.params[2:2+(2*self.nmax)+1],self.params[2+(2*self.nmax)+1:-2]
         elif(self.useExc and ~self.useSat):
-            nbar,b1,pparams,eparams = self.params[1],self.params[2:2+(2*self.nmax)],self.params[2+(2*self.nmax):]
+            nbar,b1,pparams,eparams = self.params[0],self.params[1],self.params[2:2+(2*self.nmax)+1],self.params[2+(2*self.nmax)+1:]
         elif(~self.useExc and self.useSat):
-            b1,pparams = self.params[1],self.params[2:2+(2*self.nmax)]
+            nbar,b1,pparams = self.params[0],self.params[1],self.params[2:2+(2*self.nmax)+1]
         else:
-            b1,pparams = self.params[1],self.params[2:]
-
-        if(len(eparams)>1):
-            raise NotImplementedError("Power exclusion is only implemented for the Exp model. Please use FFTLog.")
+            nbar,b1,pparams = self.params[0],self.params[1],self.params[2:]
 
         def Pk(k):
             #Set BB
@@ -128,22 +130,24 @@ class AutoCorrelator(hzpt):
                 grads.append(np.atleast_2d(b1_grad).T)
                 grads.append(b1**2 * bbgrad)
             else:
-                bb = XiBB(r,pparams,nmax=self.nmax)
+                bb = PBB(k,pparams,nmax=self.nmax)
                 p = 1/nbar + b1**2 * (self.hzpt.P_zel(k) + bb)
                 nbar_grad = -(1/nbar**2) *np.ones(len(k))
                 b1_grad = 2*(p- 1/nbar)/b1
 
             #Set exclusion
             if(self.useExc):
-                R=eparams
+                if(len(eparams)>1):
+                    raise NotImplementedError("Power exclusion is only implemented for the Exp model. Please use FFTLog.")
+                R=eparams[0]
                 pc = p-1/nbar
                 if(wantGrad):
                     exclusion_func,e_f_grad = self.Fk_excl(k,R,wantGrad=True)
-                    grad_Re = e_f_grad + convolve(e_f_grad,pc)
+                    grad_Re = e_f_grad + self.convolve(k,e_f_grad,pc)
                     grads.append(np.atleast_2d(grad_Re).T)
                 else:
-                    exclusion_func =  self.Fk_excl(k,R,wantGrad=True)
-                exclusion = exclusion_func + convolve(exclusion_func,pc)
+                    exclusion_func =  self.Fk_excl(k,R,wantGrad=False)
+                exclusion = exclusion_func + self.convolve(k,exclusion_func,pc)
             else:
                 exclusion =0  #no exclusion (additive)
 
@@ -207,12 +211,12 @@ class AutoCorrelator(hzpt):
             2pcf function of r (Mpc/h)
         '''
         if(self.useExc and self.useSat):
-            b1,pparams,eparams,sparams = self.params[1],self.params[2:2+(2*self.nmax)],self.params[2+(2*self.nmax):-2],self.params[-2:]
+            b1,pparams,eparams,sparams = self.params[1],self.params[2:2+(2*self.nmax)+1],self.params[2+(2*self.nmax)+1:-2],self.params[-2:]
         elif(self.useExc and ~self.useSat):
-            b1,pparams,eparams = self.params[1],self.params[2:2+(2*self.nmax)],self.params[2+(2*self.nmax):]
+            b1,pparams,eparams = self.params[1],self.params[2:2+(2*self.nmax)+1],self.params[2+(2*self.nmax)+1:]
             sparams=None
         elif(~self.useExc and self.useSat):
-            b1,pparams,sparams = self.params[1],self.params[2:2+(2*self.nmax)],self.params[2+(2*self.nmax):]
+            b1,pparams,sparams = self.params[1],self.params[2:2+(2*self.nmax)+1],self.params[2+(2*self.nmax)+1:]
             eparams=None
         else:
             b1,pparams,eparams = self.params[1],self.params[2:],None
@@ -223,15 +227,18 @@ class AutoCorrelator(hzpt):
             if(wantGrad):
                 grads=[]
                 bb,bbgrad = XiBB(r,pparams,nmax=self.nmax,wantGrad=True)
+                xic = b1**2 * (self.hzpt.Xi_zel(r) + bb)
                 b1_grad = 2.*xic/b1
                 grads.append(np.atleast_2d(b1_grad).T)
                 grads.append(b1**2 * bbgrad)
             else:
                 bb = XiBB(r,pparams,nmax=self.nmax)
+                xic = b1**2 * (self.hzpt.Xi_zel(r) + bb)
+
 
             #Set exclusion
             if(self.useExc):
-                if(len(eparams==2)): #check for Exp or ExpLog model
+                if(len(eparams)==2): #check for Exp or ExpLog model
                     R,sigma = eparams
                 else:
                     R,sigma = eparams,None
@@ -241,6 +248,7 @@ class AutoCorrelator(hzpt):
                     grads.append(np.atleast_2d(grad_Re*(1. + xic)).T)
                     grads.append(np.atleast_2d(grad_sigmae*(1. + xic)).T)
                 else:
+                    print('R,sigma', R,sigma)
                     exclusion = self.Fr_excl(r,R,sigma)
             else:
                 exclusion=1 #no exclusion (multiplicative)
@@ -258,7 +266,6 @@ class AutoCorrelator(hzpt):
                 satellite=0 #no sats (additive)
 
             #put it together
-            xic = b1**2 * (self.hzpt.Xi_zel(r) + bb)
             xi_d = exclusion*(1. + xic) - 1.
             if(wantGrad): return xi_d + satellite, np.hstack(grads)
             else: return xi_d + satellite

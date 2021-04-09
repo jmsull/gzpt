@@ -7,8 +7,6 @@ from numpy import inf
 
 
 class Correlator(hzpt):
-    '''hzpt provides cosmology, plin, z
-    '''
     def __init__(self,params,hzpt):
         '''
         Parameters
