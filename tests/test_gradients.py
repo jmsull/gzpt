@@ -55,7 +55,7 @@ def test_gradients():
         mplu = (matter.Correlator(mm_ps*indp ,model))
         mmin = (matter.Correlator(mm_ps*indm ,model))
         delta = (mplu.Power()(ktest)-mmin.Power()(ktest))
-        assert np.allclose((deltak)/(2*eps*mm_ps[i]),gradsk[:,i],rtol=rtol,atol=atol), \
+        assert np.allclose((delta)/(2*eps*mm_ps[i]),gradsk[:,i],rtol=rtol,atol=atol), \
         "FS nmax=2 gradient test failed!"
         #CS
         mplu = (matter.Correlator(mm_ps*indp ,model))
