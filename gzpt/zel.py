@@ -8,7 +8,7 @@ import pyfftw
 from scipy.special import loggamma
 from scipy.interpolate import interp1d
 import numpy as np
-
+print("irlin branch")
 def loginterp(x, y, yint = None, side = "both", lorder = 9, rorder = 9, lp = 1, rp = -1,
               ldx = 1e-6, rdx = 1e-6):
     '''
@@ -329,9 +329,11 @@ class CLEFT:
     Based on Chirag's code
     https://github.com/sfschen/velocileptors/blob/master/LPT/cleft_fftw.py
     The bias parameters are ordered in pktable as 1
+
+    Added in a term proportional to \xi_L to pktable.
     '''
 
-    def __init__(self, k, p, cutoff=10, jn=5, N = 2000, threads=1, extrap_min = -5, extrap_max = 3, import_wisdom=False, wisdom_file='wisdom.npy'):
+    def __init__(self, k, p, cutoff=40, jn=5, N = 2000, threads=1, extrap_min = -5, extrap_max = 3, import_wisdom=False, wisdom_file='wisdom.npy'):
         '''
         Parameters:
         ----------
@@ -368,7 +370,7 @@ class CLEFT:
         self.update_power_spectrum(k,p)
 
         self.pktable = None
-        self.num_power_components = 1 #since just ZA
+        self.num_power_components = 2
 
 
         self.jn = jn
@@ -388,7 +390,7 @@ class CLEFT:
         self.setup_powerspectrum()
 
     def setup_powerspectrum(self):
-        # This sets up terms up to one looop in the combination (symmetry factors) they appear in pk
+        # This sets up terms up to one loop in the combination (symmetry factors) they appear in pk
         self.qf = QFuncFFT(self.kint, self.pint, qv=self.qint)
 
         # linear terms
@@ -412,6 +414,15 @@ class CLEFT:
             ZA power
         '''
         ksq = k**2
+        # print('-.5ksq',-0.5*ksq)
+        # print('XYLin',self.XYlin)
+        # print('sigma',self.sigma)
+        # print('diff',(self.XYlin - self.sigma))
+
+        #this overflows if kmax goes beyond 3...
+        #sigma is of size ~-70, ksq has max of -.5*100 so total is 350, which is >>ln(2^64)=44
+        #but using kmax=3 ducks this issue since roughly divide this by 10, 35<44
+        #would have to convert to higher precision and sounds painful with fftw so pass
         expon = np.exp(-0.5*ksq * (self.XYlin - self.sigma))
         suppress = np.exp(-0.5 * ksq *self.sigma)
 
@@ -420,6 +431,7 @@ class CLEFT:
         bias_integrands = np.zeros( (self.num_power_components,self.N)  )
 
         for l in range(self.jn):
+            bias_integrands[-2,:] = self.corlin #IR lin
             bias_integrands[-1,:] = 1 # this is the counterterm, minus a factor of k2
             #this is the ZA
             # multiply by IR exponent
