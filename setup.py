@@ -2,8 +2,8 @@ from setuptools import setup
 from io import open
 
 # read the contents of the README file
-with open('README.md', "r") as f:
-    long_description = f.read()
+#with open('README.md', "r") as f:
+#    long_description = f.read()
 
 def find_version(path):
     with open(path, 'r') as fp:
@@ -17,8 +17,8 @@ def find_version(path):
 
 setup(name='gzpt',
       version = find_version("gzpt/__init__.py"),
-      description='Hybrid Analytic Model for Galaxy Power Spectrum',
-      long_description=long_description,
+      description='Hybrid Analytic Model for Matter and Tracer Two-point Correlators',
+     # long_description="See README.md",#long_description,
       url='https://github.com/jmsull/gzpt',
       author='James M Sullivan',
       author_email='jmsullivan@berkeley.edu',

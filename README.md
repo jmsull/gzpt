@@ -1,5 +1,5 @@
 [![Build Status](https://travis-ci.com/jmsull/gzpt.svg?token=qyXyxSxrxC9pHePgsUAV&branch=master)](https://travis-ci.com/jmsull/gzpt)
-[![image](http://img.shields.io/pypi/v/gzpt.svg)](https://pypi.˓→python.org/pypi/gzpt/)
+[![image](http://img.shields.io/pypi/v/gzpt.svg)](https://pypi.python.org/pypi/gzpt/)
 
 # gzpt
 Hybrid Perturbation Theory + Halo Model 2-point statistics
