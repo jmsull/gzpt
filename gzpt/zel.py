@@ -155,16 +155,9 @@ class SphericalBesselTransform:
         ms = np.arange(0, self.N//2+1)
         self.ydict = {}; self.udict = {}; self.qdict= {}
 
-        #This is a note for my own understanding (jms), remove it later
         #L is the number of orders to track through for bessel functions
-        #mcfit only does 1 using the bessel function order of the kernel that is passed to it
-        #here Chirag does this for the first L bessel functions, I suppose for convenience later?
-        #the L has nothing to do with lowring - that comes from the boundary settings and xy
         #Recall that lowringing is setting the bdr values of lnxy to be equal so that the period folds continuously
         #Here this is just done L times because we will need that many bessel kernels in the angular integration
-        #Fundamentally, need to do angular integration because taking k and q vectors in 3d FT so
-        #need to account for angle mu between them - do this by expanding mu in legendre ells
-        #how many ells you want just improves the accuracy of the mu expansion, and how many will be app specific
         if low_ring:
             for ll in range(L):
                 q = max(0, 1.5 - ll)
@@ -241,7 +234,7 @@ class SphericalBesselTransform:
         '''
         return self.sqrtpi * np.exp(np.log(2)*(z-2) + loggamma(0.5*(nu+z)) - loggamma(0.5*(3+nu-z)))
 
-#Qfunc for computing the power - tossing almost everything
+#Qfunc for computing the power - tossing almost everything from CLEFT
 class QFuncFFT:
     '''
        Chirag's notes:
@@ -270,7 +263,7 @@ class QFuncFFT:
         self.k = k
         self.p = p
         if qv is None:
-            self.qv = np.logspace(-5,5,20000) #this seems like a lot?
+            self.qv = np.logspace(-5,5,20000) #can decrease?
         else:
             self.qv = qv
 

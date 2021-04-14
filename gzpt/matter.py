@@ -16,7 +16,6 @@ class Correlator(hzpt):
         hzpt : hzpt
             Hzpt base class that holds the linear, zeldovich, and z information.
         '''
-        #should inherit self.z = hzpt.z #redshift
         self.params = params
         self.nmax=(len(self.params)-1)//2
         assert self.nmax<=3
@@ -84,12 +83,12 @@ class Correlator(hzpt):
         wp = np.zeros(int(len(xi)/len(pi_bins)))
         if(wantGrad): wp_grad=np.zeros((len(wp),len(self.params)))
 
-        #sum over los direction in each bin
+        #sum over los in each bin
         for i in range(len(wp)-1):
             wp[i] = 2* dpi * np.sum(xi[i*len(pi_bins):(i+1)*len(pi_bins)])
             if(wantGrad): wp_grad[i] = 2* dpi * np.sum(grad_xi[i*len(pi_bins):(i+1)*len(pi_bins)])
         rp = r[::len(pi_bins)]
-        #TODO: All of this branching is probably bad - come back and fix this
+        #TODO: Make this branching nicer
         if(wantGrad):
             return rp,wp,wp_grad
         else:

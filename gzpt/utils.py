@@ -93,8 +93,7 @@ def sigma(M,z,mdef,P=None,kmin=1e-5,kmax=1e2,num_pts=100,cosmo=Planck15):
     '''
     growth = (1/(1+z))
     if P is None:
-        #print("Using linear power - interpolating planck")
-        kk,Pkk = np.loadtxt('/Users/jsull/Cosmology_Codes/flowpm/flowpm/data/Planck15_a1p00.txt',unpack=True)#LinearPower(cosmo,z) #too slow, running class each time
+        kk,Pkk = np.loadtxt('/Users/jsull/Cosmology_Codes/flowpm/flowpm/data/Planck15_a1p00.txt',unpack=True)
         def P(k):
             return np.interp(k,kk,Pkk)
 
@@ -104,6 +103,6 @@ def sigma(M,z,mdef,P=None,kmin=1e-5,kmax=1e2,num_pts=100,cosmo=Planck15):
     def I(k):
         I = k**2 * P(k) * np.abs(W_TH(k,rDelta(M,z,mdef)))**2
         return I
-    Ig = growth*np.sqrt((1/(2*np.pi**2))* np.trapz(I(k),x=k))# quad(I,kmin,kmax)[0])
+    Ig = growth*np.sqrt((1/(2*np.pi**2))* np.trapz(I(k),x=k))
 
     return Ig

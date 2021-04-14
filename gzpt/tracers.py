@@ -95,7 +95,7 @@ class AutoCorrelator(hzpt):
         for i in range(N):
             res[i] = np.trapz(A(abs(k-k[i]))*B(k),x=k)
         return res
-
+        #qualitatively seems to do okay, but should really come back and fix it
 
     def Power(self,wantGrad=False):
         '''
@@ -132,7 +132,7 @@ class AutoCorrelator(hzpt):
             else:
                 bb = PBB(k,pparams,nmax=self.nmax)
                 p = 1/nbar + b1**2 * (self.hzpt.P_zel(k) + bb)
-                
+
             #Set exclusion
             if(self.useExc):
                 if(len(eparams)>1):
@@ -174,7 +174,7 @@ class AutoCorrelator(hzpt):
         array or (array,array)
             Exclusion kernel, and gradient, if asked for
         '''
-        #Error function for the exclusion step as in Baldauf++ 2013 eqns (C2), (C4), with log10 as in main text
+        #Exp model from Appendix B.1
         if(sigma_excl==None):
             f = 1-np.exp(-(r/R_excl)**4)
             F = f**2
@@ -184,6 +184,8 @@ class AutoCorrelator(hzpt):
                 return F,grad_F
             else:
                 return F
+        #ExpLog
+        #Error function for the exclusion step as in Baldauf++ 2013 eqns (C2), (C4), with log10 as in main text
         else:
             F = .5*(1 + erf(np.log10(r/R_excl)/(np.sqrt(2)*sigma_excl)))
             if(wantGrad):
@@ -309,7 +311,7 @@ class CrossCorrelator(hzpt):
     def __init__(self,params,hzpt):
         #Set maximum Pade expansion order
         self.params = params
-        self.nmax = (len(self.params[1:])-1)//2 #change this
+        self.nmax = (len(self.params[1:])-1)//2
         self.hzpt = hzpt
 
     def Power(self,wantGrad=False):
@@ -436,6 +438,7 @@ class CrossCorrelator(hzpt):
         #     pre = (1+zl)*(4*np.pi*G)/c**2 #Mpc *Msun^-1
         #     return pre*Dfactor # #Mpc^2 Msun^-1 h^-1, what we need to match units of Sigma
 
+        #FIXME: internally check units on this, works in the example though
 
         if(wantGrad):
             wpgm,grad_wpgm = self.wp(rp,pi=pi,wantGrad=True)
@@ -457,7 +460,7 @@ class CrossCorrelator(hzpt):
         sint_c = rhom*wint_c
         t1=np.zeros(len(rpint))
         t1[rpint<rpMin] = 0.
-        #Using Sukhdeep 2018 eqn 29 - there is a typo so add missing factor of 2
+        #Using Singh 2018 eqn 29 - there is a typo so add missing factor of 2
         t1[rpint>=rpMin] = (2./rpint_c**2)*cumtrapz(rpint_c*sint_c,x=rpint_c,initial=0)
         t2 = -s_int
         S0=np.interp(rpMin,rpint,s_int)

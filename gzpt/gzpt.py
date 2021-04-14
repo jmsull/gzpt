@@ -19,29 +19,23 @@ class hzpt:
     ----------
     __init__
 
-    Examples
+    Example
     --------
     >>> k,plin = np.loadtxt("my_linear_power_file.txt",unpack=True)
     >>> z = 0.5
-    >>> model = gzpt.hzpt(k,plin,z)
-    >>> mm = matter.Correlator(model,nmax=1)
-    >>> gg = tracers.AutoCorrelator(model,nmax=1)
-    >>> gm = tracers.CrossCorrelator(model,nmax=2)
+    >>> model = gzpt.hzpt(k,plin)
+    >>> mm = matter.Correlator(params, model)
+    >>> gg = tracers.AutoCorrelator(params,model)
+    >>> gm = tracers.CrossCorrelator(params,model)
 
     #3D stats
     r = np.logspace(-1,3)
     ximm = mm.Xi()(r)
+    k = np.logspace(-3,1)
     Pgg = gg.Power()(k)
 
-    #Projected Stats
-    >>> z_source = 1
-    >>> DeltaSigma_gm = gm.Delta_Sigma(r,z_source) #using default top-hat pi-bins
-
-    #Analytic gradients (of non-cosmology hzpt parameters)
-    >>> wgg,grad_wgg = gg.wp(r,wantGrad=True)
-
     """
-    #FOR NOW: will only support single z, but can come back to this later
+    #For now will only support single z, but can come back to this later
     def __init__(self,klin,plin):
         self.plin = loginterp(klin,plin) #interpolator
 
