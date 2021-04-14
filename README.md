@@ -21,7 +21,7 @@ pip install gzpt
 
 
 ```python
-from gzpt import *
+from gzpt import hzpt,matter,tracers
 import numpy as np
 
 # Provide a linear theory power spectrum at some z and instantiate hzpt model
