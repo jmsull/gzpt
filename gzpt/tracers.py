@@ -132,9 +132,7 @@ class AutoCorrelator(hzpt):
             else:
                 bb = PBB(k,pparams,nmax=self.nmax)
                 p = 1/nbar + b1**2 * (self.hzpt.P_zel(k) + bb)
-                nbar_grad = -(1/nbar**2) *np.ones(len(k))
-                b1_grad = 2*(p- 1/nbar)/b1
-
+                
             #Set exclusion
             if(self.useExc):
                 if(len(eparams)>1):
