@@ -6,6 +6,7 @@ from numpy import inf
 from scipy.special import erf,gamma,poch
 from scipy.interpolate import InterpolatedUnivariateSpline as ius
 from scipy.integrate import cumtrapz
+from gzpt.utils import W_TH
 
 class AutoCorrelator(hzpt):
     def __init__(self,params,hzpt,params_exc=None,params_sat=None):
@@ -53,7 +54,7 @@ class AutoCorrelator(hzpt):
 
         def _hyp0f2(b1,b2, z, eps=1e-6, nmax=10):
             sum = 0
-            #accumulate the sum from scratch, no convenient identities, but 5 terms seems good enough
+            #accumulate the sum from scratch, no convenient identities, but 5 terms seems good enough, use 10 to be safe
             #mpmath does this but don't want to introduce dependency just for one function
             for k in range(nmax):
                 sum+= 1/(poch(b1,k)*poch(b2,k)) * z**k / np.math.factorial(k)
@@ -64,7 +65,7 @@ class AutoCorrelator(hzpt):
             #try to come back and pass arguments for 0F2 convergence
             t1 = R_excl**3 / 3 * gamma(7/4) * _hyp0f2(1/2,5/4,(k*R_excl/4)**4)
             t2 = -k**2 * R_excl**5 /24 * gamma(5/4) * _hyp0f2(3/2,7/4,(k*R_excl/4)**4)
-            return (t1 + t2)/(2*np.pi**2)
+            return 4*np.pi*(t1 + t2)
 
         F = -2*_fk(k,R_excl) + _fk(k,2**(-1/4) * R_excl)
         #with these settings can't trust k>10/R h\Mpc
@@ -89,11 +90,10 @@ class AutoCorrelator(hzpt):
         #Do the N^2 operation, assume (probably bad) that not zero padding is fine
         #It would be better (for all N>100) to do the fft convolution
         A,B = ius(k,x,ext=1),ius(k,y,ext=1)
-        #logdelta = np.log(k[1:]/k[:-1])
         N = len(k)
         res = np.zeros(N)
         for i in range(N):
-            res[i] = np.trapz(A(abs(k-k[i]))*B(k),x=k)
+            res[i] = np.trapz(k**2 * A(abs(k-k[i]))*B(k),x=k)/(2*np.pi**2)
         return res
         #qualitatively seems to do okay, but should really come back and fix it
 
@@ -144,7 +144,7 @@ class AutoCorrelator(hzpt):
                     grad_Re = e_f_grad + self.convolve(k,e_f_grad,pc)
                     grads.append(np.atleast_2d(grad_Re).T)
                 else:
-                    exclusion_func =  self.Fk_excl(k,R,wantGrad=False)
+                    exclusion_func =  self.Fk_excl(k,R,wantGrad=False) #- (4*np.pi/3)*R**3 * W_TH(k,R)#
                 exclusion = exclusion_func + self.convolve(k,exclusion_func,pc)
             else:
                 exclusion =0  #no exclusion (additive)

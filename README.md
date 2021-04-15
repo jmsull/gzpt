@@ -33,7 +33,7 @@ A0,R,R1h,R1sq,R12 = 350.,26.,5.,20.,2.
 nbar,b1,Rexc,sigexc = 1e-3, 2., 2., 0.1
 mm = matter.Correlator([A0,R,R1h,R1sq,R12],model)
 tm = tracers.CrossCorrelator([b1,A0,R,R1h,R1sq,R12],model)
-tt = tracers.AutoCorrelator([nbar,b1,A0,R,R1h,Rexc,sigexc],model,excl=True) #default uses exclusion
+tt = tracers.AutoCorrelator([nbar,b1,A0,R,R1h,Rexc,sigexc],model,params_exc=[1]) #use one exclusion parameter
 
 
 kk = np.logspace(-3,np.log10(2),1000)
