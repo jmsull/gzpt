@@ -64,7 +64,7 @@ class AutoCorrelator(hzpt):
             #try to come back and pass arguments for 0F2 convergence
             t1 = R_excl**3 / 3 * gamma(7/4) * _hyp0f2(1/2,5/4,(k*R_excl/4)**4)
             t2 = -k**2 * R_excl**5 /24 * gamma(5/4) * _hyp0f2(3/2,7/4,(k*R_excl/4)**4)
-            return (t1 + t2)/(2*np.pi**2)
+            return 4*np.pi*(t1 + t2)
 
         F = -2*_fk(k,R_excl) + _fk(k,2**(-1/4) * R_excl)
         #with these settings can't trust k>10/R h\Mpc
@@ -93,7 +93,7 @@ class AutoCorrelator(hzpt):
         N = len(k)
         res = np.zeros(N)
         for i in range(N):
-            res[i] = np.trapz(A(abs(k-k[i]))*B(k),x=k)
+            res[i] = np.trapz(k**2 * A(abs(k-k[i]))*B(k),x=k)/(2*np.pi**2)
         return res
 
 

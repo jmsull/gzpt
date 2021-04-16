@@ -330,9 +330,8 @@ class CLEFT:
     https://github.com/sfschen/velocileptors/blob/master/LPT/cleft_fftw.py
     The bias parameters are ordered in pktable as 1
 
-    Added in a term proportional to \xi_L to pktable.
+    Added in a term proportional to xi_L to pktable.
     '''
-
     def __init__(self, k, p, cutoff=40, jn=5, N = 2000, threads=1, extrap_min = -5, extrap_max = 3, import_wisdom=False, wisdom_file='wisdom.npy'):
         '''
         Parameters:

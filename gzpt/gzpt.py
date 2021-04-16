@@ -48,8 +48,9 @@ class hzpt:
         #compute ZA
         self.cleft = CLEFT(klin,plin)
         self.cleft.make_ptable()
-        kza,pza = self.cleft.pktable.T #evaluated at klin
-        self.P_zel = loginterp(kza,pza) #callable
+        kt,plir,pza = self.cleft.pktable.T #evaluated at klin
+        self.P_zel = loginterp(kt,pza) #callable
+        self.P_lir = loginterp(kt,plir)
         rxi = np.logspace(-1,3,4000) #matching up with the SBT in zel
         xiza = self.cleft.compute_xi_real(rxi)
         self.Xi_zel = loginterp(rxi,xiza) #callable
