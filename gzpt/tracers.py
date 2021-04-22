@@ -6,7 +6,7 @@ from numpy import inf
 from scipy.special import erf,gamma,poch
 from scipy.interpolate import InterpolatedUnivariateSpline as ius
 from scipy.integrate import cumtrapz
-from gzpt.utils import W_TH
+# from gzpt.utils import W_TH
 
 class AutoCorrelator(hzpt):
     def __init__(self,params,hzpt,params_exc=None,params_sat=None):
