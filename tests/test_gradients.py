@@ -11,7 +11,7 @@ def test_gradients():
     atol,rtol,eps=1e-4,1e-8,1e-8
 
     #set up the model
-    testfile = os.path.join(os.path.dirname(__file__), './test_plin_planck_z0.55.txt')
+    testfile = os.path.join(os.path.dirname(__file__), './test_plin_cc_z0.55.txt')
     k,plin = np.loadtxt(testfile,unpack=True)
     z=0.55
     model = gzpt.hzpt(k,plin)
