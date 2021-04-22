@@ -4,7 +4,7 @@
 # gzpt
 Hybrid Perturbation Theory + Halo Model 2-point statistics
 
-gzpt provides a simple implementation of the analytic expressions used in [Sullivan, Seljak \& Singh (2021)](link arXiv)
+gzpt provides a simple implementation of the analytic expressions used in [Sullivan, Seljak \& Singh (2021)](https://arxiv.org/pdf/2104.10676.pdf)
 
 ## Installation
 Using pip:
@@ -25,7 +25,7 @@ from gzpt import hzpt,matter,tracers
 import numpy as np
 
 # Provide a linear theory power spectrum at some z and instantiate hzpt model
-klin,plin = np.loadtxt('./tests/test_plin_planck_z0.55.txt',unpack=True)
+klin,plin = np.loadtxt('./tests/test_plin_cc_z0.55.txt',unpack=True)
 model = hzpt(klin,plin)
 
 #set up correlator objects for matter, tracer cross and auto, nmax is inferred from size of parameters
