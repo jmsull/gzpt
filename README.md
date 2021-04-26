@@ -30,10 +30,10 @@ model = hzpt(klin,plin)
 
 #set up correlator objects for matter, tracer cross and auto, nmax is inferred from size of parameters
 A0,R,R1h,R1sq,R12 = 350.,26.,5.,20.,2.
-nbar,b1,Rexc,sigexc = 1e-3, 2., 2., 0.1
+nbar,b1,Rexc = 1e-3, 2., 2.
 mm = matter.Correlator([A0,R,R1h,R1sq,R12],model)
 tm = tracers.CrossCorrelator([b1,A0,R,R1h,R1sq,R12],model)
-tt = tracers.AutoCorrelator([nbar,b1,A0,R,R1h,Rexc,sigexc],model,params_exc=[1]) #use one exclusion parameter
+tt = tracers.AutoCorrelator([nbar,b1,A0,R,R1h],model,params_exc=[Rexc]) #use one exclusion parameter
 
 
 kk = np.logspace(-3,np.log10(2),1000)
@@ -41,7 +41,7 @@ rr = np.logspace(0,2,1000)
 
 #get some matter correlators
 Pmm = mm.Power()(kk)
-Ximm,Ximm_grad = matter.Xi(wantGrad=True)(rr) #get the grad if you want it
+Ximm,Ximm_grad = mm.Xi(wantGrad=True)(rr) #get the grad if you want it
 
 ```
 A more involved example is provided in docs/first_example.ipynb
