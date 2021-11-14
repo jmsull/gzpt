@@ -359,6 +359,7 @@ class CLEFT:
         self.cutoff = cutoff
         self.kint = np.logspace(extrap_min,extrap_max,self.N)
         self.qint = np.logspace(-extrap_max,-extrap_min,self.N)
+        self.useFFTW = useFFTW
 
         self.update_power_spectrum(k,p)
 
@@ -370,7 +371,6 @@ class CLEFT:
         self.threads = threads
         self.import_wisdom = import_wisdom
         self.wisdom_file = wisdom_file
-        self.useFFTW = useFFTW
         self.sph = SphericalBesselTransform(self.qint, L=self.jn, ncol=self.num_power_components,
                                             threads=self.threads, import_wisdom= self.import_wisdom,
                                             wisdom_file = self.wisdom_file, useFFTW=self.useFFTW)
