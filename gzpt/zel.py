@@ -385,7 +385,7 @@ class CLEFT:
 
     def setup_powerspectrum(self):
         # This sets up terms up to one looop in the combination (symmetry factors) they appear in pk
-        self.qf = QFuncFFT(self.kint, self.pint, qv=self.qint,useFFTW=self.useFFTW)
+        self.qf = QFuncFFT(self.kint, self.pint, qv=self.qint,useFFTW=False)
 
         # linear terms
         self.Xlin = self.qf.Xlin
