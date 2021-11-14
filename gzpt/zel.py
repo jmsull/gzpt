@@ -249,7 +249,7 @@ class QFuncFFT:
        the resulting speedup is unnecessary in this case.
 
     '''
-    def __init__(self, k, p, qv = None):
+    def __init__(self, k, p, qv = None, useFFTW = False):
         '''This assumes L=5 (with lowring) for the angular evaluation
         Parameters:
         ----------
@@ -268,7 +268,7 @@ class QFuncFFT:
             self.qv = qv
 
         self.sph = SphericalBesselTransform(self.k, L=5, low_ring=True, fourier=True,
-                                            useFFTW=False) #keeping with old choice
+                                            useFFTW=useFFTW) #keeping with old choice
         self.setup_xiln()
         self.setup_2pts()
 
@@ -324,7 +324,9 @@ class CLEFT:
     The bias parameters are ordered in pktable as 1
     '''
 
-    def __init__(self, k, p, cutoff=10, jn=5, N = 2000, threads=1, extrap_min = -5, extrap_max = 3, import_wisdom=False, wisdom_file='wisdom.npy'):
+    def __init__(self, k, p, cutoff=10, jn=5, N = 2000, threads=1, extrap_min = -5,
+                 extrap_max = 3, import_wisdom=False, wisdom_file='wisdom.npy',
+                 useFFTW=False):
         '''
         Parameters:
         ----------
@@ -368,9 +370,10 @@ class CLEFT:
         self.threads = threads
         self.import_wisdom = import_wisdom
         self.wisdom_file = wisdom_file
+        self.useFFTW = useFFTW
         self.sph = SphericalBesselTransform(self.qint, L=self.jn, ncol=self.num_power_components,
                                             threads=self.threads, import_wisdom= self.import_wisdom,
-                                            wisdom_file = self.wisdom_file)
+                                            wisdom_file = self.wisdom_file, useFFTW=self.useFFTW)
         #uses FFTW version by default
 
     def update_power_spectrum(self, k, p):
@@ -382,7 +385,7 @@ class CLEFT:
 
     def setup_powerspectrum(self):
         # This sets up terms up to one looop in the combination (symmetry factors) they appear in pk
-        self.qf = QFuncFFT(self.kint, self.pint, qv=self.qint)
+        self.qf = QFuncFFT(self.kint, self.pint, qv=self.qint,useFFTW=self.useFFTW)
 
         # linear terms
         self.Xlin = self.qf.Xlin
@@ -481,7 +484,7 @@ class CLEFT:
         _integrand = weight * _integrand + (1-weight) * (plin)
 
         sph_xi = SphericalBesselTransform(kint,L=1,fourier=True,
-                                            useFFTW=False) #keeping with old choice, for whatever reason
+                                            useFFTW=self.useFFTW) #keeping with old choice, for whatever reason
         #dropping L to 1 since we won't be needing higher here for linear, only using sph for j0 transform to xi
 
         qint, xi = sph_xi.sph(0,_integrand)
