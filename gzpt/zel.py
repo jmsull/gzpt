@@ -249,7 +249,7 @@ class QFuncFFT:
        the resulting speedup is unnecessary in this case.
 
     '''
-    def __init__(self, k, p, qv = None, useFFTW = False):
+    def __init__(self, k, p, qv = None, useFFTW = True):
         '''This assumes L=5 (with lowring) for the angular evaluation
         Parameters:
         ----------
@@ -326,7 +326,7 @@ class CLEFT:
 
     def __init__(self, k, p, cutoff=10, jn=5, N = 2000, threads=1, extrap_min = -5,
                  extrap_max = 3, import_wisdom=False, wisdom_file='wisdom.npy',
-                 useFFTW=False):
+                 useFFTW=True):
         '''
         Parameters:
         ----------
