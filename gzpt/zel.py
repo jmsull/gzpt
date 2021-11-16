@@ -395,7 +395,7 @@ class CLEFT:
         self.yq = self.Ylin / self.qint
         self.corlin = self.qf.corlin
 
-    def p_integrals(self, k):
+    def p_integrals(self, k, Dz=None):
         '''
         Compute P(k) for a single k as a vector of all bias contributions.
         Parameters:
@@ -407,9 +407,10 @@ class CLEFT:
         array
             ZA power
         '''
+        Dz = Dz if(Dz is not None) else 1.
         ksq = k**2
-        expon = np.exp(-0.5*ksq * (self.XYlin - self.sigma))
-        suppress = np.exp(-0.5 * ksq *self.sigma)
+        expon = np.exp( -0.5*ksq * (self.XYlin - self.sigma) * Dz**2 )
+        suppress = np.exp( -0.5 * ksq *self.sigma  * Dz**2 )
 
         ret = np.zeros(self.num_power_components)
 
@@ -423,7 +424,7 @@ class CLEFT:
                 bias_integrands = bias_integrands * expon
                 bias_integrands -= bias_integrands[:,-1][:,None] # note that expon(q = infinity) = 1
             else:
-                bias_integrands = bias_integrands * expon * self.yq**l
+                bias_integrands = bias_integrands * expon * (self.yq * Dz**2)**l
 
             # do FFTLog
             ktemps, bias_ffts = self.sph.sph(l, bias_integrands)
@@ -431,7 +432,7 @@ class CLEFT:
 
         return 4*suppress*np.pi*ret
 
-    def make_ptable(self, kmin = 1e-3, kmax = 3, nk = 100):
+    def make_ptable(self, kmin = 1e-3, kmax = 3, nk = 100, Dz=None):
         '''
         Make a table of different terms of P(k) between a given
         'kmin', 'kmax' and for 'nk' equally spaced values in log10 of k
@@ -452,7 +453,7 @@ class CLEFT:
         kv = np.logspace(np.log10(kmin), np.log10(kmax), nk)
         self.pktable[:, 0] = kv[:]
         for foo in range(nk):
-            self.pktable[foo, 1:] = self.p_integrals(kv[foo])
+            self.pktable[foo, 1:] = self.p_integrals(kv[foo],Dz=Dz)
 
 
     def export_wisdom(self, wisdom_file='./wisdom.npy'):

@@ -42,8 +42,13 @@ class hzpt:
         #compute ZA
         self.cleft = CLEFT(klin,plin)
         self.cleft.make_ptable()
-        kza,pza = self.cleft.pktable.T #evaluated at klin
-        self.P_zel = loginterp(kza,pza) #callable
-        rxi = np.logspace(-1,3,4000) #matching up with the SBT in zel
-        xiza = self.cleft.compute_xi_real(rxi)
-        self.Xi_zel = loginterp(rxi,xiza) #callable
+        self.kza,pza = self.cleft.pktable.T #evaluated at klin
+        self.P_zel = loginterp(self.kza,pza) #callable
+        self.rxi = np.logspace(-1,3,4000) #matching up with the SBT in zel
+        xiza = self.cleft.compute_xi_real(self.rxi)
+        self.Xi_zel = loginterp(self.rxi,xiza) #callable
+
+    def update_redshift(self,Dz):
+        self.cleft.make_ptable(Dz=Dz)
+        self.P_zel = loginterp(*self.cleft.pktable.T)
+        self.Xi_zel = loginterp(self.rxi,self.cleft.compute_xi_real(self.rxi))
