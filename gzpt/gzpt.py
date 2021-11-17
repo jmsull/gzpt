@@ -4,6 +4,7 @@ import warnings
 from gzpt.zel import *
 from scipy.interpolate import InterpolatedUnivariateSpline as ius
 import os.path as path
+import warnings,time
 
 class hzpt:
     """
@@ -36,7 +37,7 @@ class hzpt:
 
     """
     #For now will only support single z, but can come back to this later
-    def __init__(self,klin,plin):
+    def __init__(self,klin,plin,config=True):
         self.plin = loginterp(klin,plin) #interpolator
 
         #compute ZA
@@ -44,11 +45,23 @@ class hzpt:
         self.cleft.make_ptable()
         self.kza,pza = self.cleft.pktable.T #evaluated at klin
         self.P_zel = loginterp(self.kza,pza) #callable
-        self.rxi = np.logspace(-1,3,4000) #matching up with the SBT in zel
-        xiza = self.cleft.compute_xi_real(self.rxi)
-        self.Xi_zel = loginterp(self.rxi,xiza) #callable
+        self.config = config
+        if(self.config):
+            self.rxi = np.logspace(-1,3,4000) #matching up with the SBT in zel
+            xiza = self.cleft.compute_xi_real(self.rxi)
+            self.Xi_zel = loginterp(self.rxi,xiza) #callable
+        else:
+            warnings.warn("Configuration space models will not work if config flag is off!",
+                           RuntimeWarning)
 
     def update_redshift(self,Dz):
+        t0=time.perf_counter()
         self.cleft.make_ptable(Dz=Dz)
+        t1=time.perf_counter()
         self.P_zel = loginterp(*self.cleft.pktable.T)
-        self.Xi_zel = loginterp(self.rxi,self.cleft.compute_xi_real(self.rxi))
+        t2=time.perf_counter()
+        print("time to call interp: ",t2-t1)
+        print("time to call table: ",t1-t0)
+
+        if(self.config):
+            self.Xi_zel = loginterp(self.rxi,self.cleft.compute_xi_real(self.rxi))

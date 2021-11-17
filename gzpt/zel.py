@@ -8,6 +8,7 @@ import pyfftw
 from scipy.special import loggamma
 from scipy.interpolate import interp1d
 import numpy as np
+import time
 
 def loginterp(x, y, yint = None, side = "both", lorder = 9, rorder = 9, lp = 1, rp = -1,
               ldx = 1e-6, rdx = 1e-6):
@@ -212,10 +213,25 @@ class SphericalBesselTransform:
             gs = self.ifft_object()
             return y, gs[:,self.ii_l:self.ii_r] * y**(-q)
         else:
+            # print('fq',fq.shape)
+            # if(len(fq.shape)>1):
+                # tnk,tnq=fq.shape
+                # print('fq shape in if',tnk,tnq)
+                # print('outer shape',np.outer(np.ones(tnk),self.pads.reshape([len(self.pads),1])).shape)
+            #     f = np.concatenate( (np.outer(np.ones(tnk),self.pads.reshape([len(self.pads),1])),
+            #                          self.q**(3-q)*fq,
+            #                          np.outer(np.ones(tnk),self.pads.reshape([len(self.pads),1]))),axis=1)
+            # else:
             f = np.concatenate( (self.pads,self.q**(3-q)*fq,self.pads) )
+            # print('f ',f.shape)
             fks = np.fft.rfft(f)
+            # print('fks ',fks.shape)
             gks = self.udict[nu] * fks
             gs = np.fft.hfft(gks) / self.N
+            # print('gs ',gs.shape)
+            # if(len(fq.shape)>1):
+            #     return y, y**(-q) * gs[:,self.pad_iis]
+            # else:
             return y, y**(-q) * gs[self.pad_iis]
 
     def UK(self, nu, z):
@@ -274,8 +290,8 @@ class QFuncFFT:
 
     def setup_xiln(self):
         # Compute a bunch of generalized correlation functions
-        self.xi00 = self.xi_l_n(0,0)
-        self.xi1m1 = self.xi_l_n(1,-1)
+        # self.xi00 = self.xi_l_n(0,0)
+        # self.xi1m1 = self.xi_l_n(1,-1)
         self.xi0m2 = self.xi_l_n(0,-2, side='right') # since this approaches constant on the left only interpolate on right
         self.xi2m2 = self.xi_l_n(2,-2)
 
@@ -283,8 +299,8 @@ class QFuncFFT:
         # Piece together xi_l_n into what we need
         self.Xlin = 2./3 * (self.xi0m2[0] - self.xi0m2 - self.xi2m2)
         self.Ylin = 2 * self.xi2m2
-        self.Ulin = - self.xi1m1
-        self.corlin = self.xi00
+        # self.Ulin = - self.xi1m1
+        # self.corlin = self.xi00
 
     def xi_l_n(self, l, n, _int=None, extrap=False, qmin=1e-3, qmax=1000, side='both'):
         '''
@@ -365,13 +381,13 @@ class CLEFT:
 
         self.pktable = None
         self.num_power_components = 1 #since just ZA
-
+        self.nkt = 100
 
         self.jn = jn
         self.threads = threads
         self.import_wisdom = import_wisdom
         self.wisdom_file = wisdom_file
-        self.sph = SphericalBesselTransform(self.qint, L=self.jn, ncol=self.num_power_components,
+        self.sph = SphericalBesselTransform(self.qint, L=self.jn, ncol=self.nkt,#self.num_power_components,
                                             threads=self.threads, import_wisdom= self.import_wisdom,
                                             wisdom_file = self.wisdom_file, useFFTW=self.useFFTW)
         #uses FFTW version by default
@@ -393,7 +409,7 @@ class CLEFT:
 
         self.XYlin = self.Xlin + self.Ylin; self.sigma = self.XYlin[-1]
         self.yq = self.Ylin / self.qint
-        self.corlin = self.qf.corlin
+        # self.corlin = self.qf.corlin
 
     def p_integrals(self, k, Dz=None):
         '''
@@ -409,28 +425,74 @@ class CLEFT:
         '''
         Dz = Dz if(Dz is not None) else 1.
         ksq = k**2
-        expon = np.exp( -0.5*ksq * (self.XYlin - self.sigma) * Dz**2 )
-        suppress = np.exp( -0.5 * ksq *self.sigma  * Dz**2 )
+        nk=len(k) if type(k) is not np.float64 else 1
+        if(nk>1):
+            expon = np.exp( -0.5*ksq.reshape([nk,1]) * (self.XYlin.reshape([1,len(self.XYlin)]) - self.sigma) * Dz**2 )
+            suppress = np.exp( -0.5 * ksq.reshape([nk,1]) *self.sigma  * Dz**2 ) #size k
+        else:
+            expon = np.exp( -0.5*ksq * (self.XYlin - self.sigma) * Dz**2 )
+            suppress = np.exp( -0.5 * ksq *self.sigma  * Dz**2 ) #size k
 
-        ret = np.zeros(self.num_power_components)
 
-        bias_integrands = np.zeros( (self.num_power_components,self.N)  )
+        # ^try setting to size (k,q) does sph work on 2d arr? looks like np version will
+        # one shot at this then use veloc
+
+        # ret = np.zeros((self.num_power_components,len(k)))
+        ret = np.zeros((nk,1)) if nk>1 else 0.
+        # print(nk,expon.shape)
+
+        #if want to get fancy can put z dim in front...
+        bias_integrands = np.zeros( (self.nkt,self.N)  ) if nk>1 else np.zeros((1,self.N))
 
         for l in range(self.jn):
-            bias_integrands[-1,:] = 1 # this is the counterterm, minus a factor of k2
+            # bias_integrands[-1,:] = 1 # this is the counterterm, minus a factor of k2
+            bias_integrands[:,:] = 1 # this is the counterterm, minus a factor of k2
+
             #this is the ZA
             # multiply by IR exponent
+            # ahh so this is bad, before this wouldn't everybody to zero , we want this to be ones
             if l == 0:
                 bias_integrands = bias_integrands * expon
+                # print('what is this:',bias_integrands[:,-1][:,None])
                 bias_integrands -= bias_integrands[:,-1][:,None] # note that expon(q = infinity) = 1
             else:
                 bias_integrands = bias_integrands * expon * (self.yq * Dz**2)**l
 
-            # do FFTLog
-            ktemps, bias_ffts = self.sph.sph(l, bias_integrands)
-            ret +=  k**l * interp1d(ktemps, bias_ffts)(k)
+            # print('expon',expon)
 
-        return 4*suppress*np.pi*ret
+            # print('BISa',bias_integrands)
+            # print("l, BI Nans: ", l, np.any(np.isnan(bias_integrands)))
+            # do FFTLog
+            # t0=time.perf_counter()
+
+            ktemps, bias_ffts = self.sph.sph(l, bias_integrands) #returns size kint array
+            # t1=time.perf_counter()
+            # print("l, time to do sph: ",l, t1-t0)
+            # print("l, BF Nans: ", l, np.any(np.isnan(bias_ffts)))
+            # print('kt,bf,ret,k shapes: ', ktemps.shape, bias_ffts.shape, ret.shape,k.shape)
+            # k = np.squeeze(k)
+            # print('interp1dshape', interp1d(ktemps, bias_ffts)(k).shape)
+            # ret +=  k**l * np.diag(interp1d(ktemps, bias_ffts)(k))
+            # print(np.array([interp1d(ktemps, bias_ffts[i])(k[i]) for i in range(nk)]).shape)
+            # t0=time.perf_counter()
+            if(nk>1):
+                ret[:,0] +=  k**l * np.array([interp1d(ktemps, bias_ffts[i])(k[i]) for i in range(nk)])
+            else:
+                ret += k**l * interp1d(ktemps, bias_ffts)(k)
+            # t1=time.perf_counter()
+            # print("l, time to do all interps: ",l, t1-t0)
+            # print("l, arr Nans: ", l, np.any(np.isnan( np.array([interp1d(ktemps, bias_ffts[i])(k[i]) for i in range(nk)]))))
+            # print("l, arr : ", l, np.array([interp1d(ktemps, bias_ffts[i])(k[i]) for i in range(nk)]))
+
+            # print("l, ret Nans: ", l, np.any(np.isnan(ret)))
+
+            #ret used to be a single number, now it should be a vector of nk
+            #for some reason I find it is a 2d array
+        # print('sr',suppress,ret,(4*suppress*np.pi*ret).shape )
+        # print(" supp Nans: ", l, np.any(np.isnan(suppress)))
+
+        # return (4*suppress*np.pi*ret).T #for all k should return (nktarget)
+        return 4*suppress*np.pi*ret #for all k should return (nktarget)
 
     def make_ptable(self, kmin = 1e-3, kmax = 3, nk = 100, Dz=None):
         '''
@@ -449,12 +511,16 @@ class CLEFT:
         ----------
         None
         '''
-        self.pktable = np.zeros([nk, self.num_power_components+1]) # one column for ks
+        self.pktable = np.zeros([nk, 1+1]) # one column for ks
         kv = np.logspace(np.log10(kmin), np.log10(kmax), nk)
         self.pktable[:, 0] = kv[:]
-        for foo in range(nk):
-            self.pktable[foo, 1:] = self.p_integrals(kv[foo],Dz=Dz)
-
+        t0=time.perf_counter()
+        # for foo in range(nk): #WHAT ON EARTH IS THIS? REALLY LOOPING OVER ALL K???
+            # self.pktable[foo, 1:] = self.p_integrals(kv[foo],Dz=Dz)
+        # print('ahh',self.pktable.shape,self.p_integrals(kv,Dz=Dz).shape)
+        self.pktable[:, 1:] = self.p_integrals(kv,Dz=Dz)
+        t1=time.perf_counter()
+        print("Time for p_integrals - loop: ", t1-t0)
 
     def export_wisdom(self, wisdom_file='./wisdom.npy'):
         """
