@@ -4,7 +4,7 @@ import warnings
 from gzpt.zel import *
 from scipy.interpolate import InterpolatedUnivariateSpline as ius
 import os.path as path
-import warnings,time
+import warnings
 
 class hzpt:
     """
@@ -55,13 +55,7 @@ class hzpt:
                            RuntimeWarning)
 
     def update_redshift(self,Dz):
-        t0=time.perf_counter()
         self.cleft.make_ptable(Dz=Dz)
-        t1=time.perf_counter()
         self.P_zel = loginterp(*self.cleft.pktable.T)
-        t2=time.perf_counter()
-        print("time to call interp: ",t2-t1)
-        print("time to call table: ",t1-t0)
-
         if(self.config):
             self.Xi_zel = loginterp(self.rxi,self.cleft.compute_xi_real(self.rxi))
