@@ -1,0 +1,43 @@
+import numpy as np
+import gzpt
+from gzpt import tracers
+from copy import copy
+import time
+k,p = np.loadtxt('/Users/jsull/Documents/emulator/HZPT+/lithe_gzpt/gzpt/tests/test_plin_cc_z0.55.txt').T
+t0 = time.perf_counter()
+a = gzpt.hzpt(k,p,config=False)
+t1 = time.perf_counter()
+aza = a.P_zel(k)
+#b=a
+t2 = time.perf_counter()
+b=copy(a)
+t3 = time.perf_counter()
+b.update_redshift(Dz=0.5)
+t4 = time.perf_counter()
+bza = b.P_zel(k)
+aza2 = a.P_zel(k)
+t5 = time.perf_counter()
+a.update_redshift(Dz=0.25)
+t6 = time.perf_counter()
+c = gzpt.hzpt(k,p)
+c.update_redshift(Dz=0.5)
+cza = c.P_zel(k)
+t7 = time.perf_counter()
+tc = tracers.AutoCorrelator([1,1,1,1,1],c)
+t8 = time.perf_counter()
+pc = tc.Power()(k)
+t9 = time.perf_counter()
+t10 = time.perf_counter()
+a.update_redshift(Dz=0.25)
+t11 = time.perf_counter()
+print(aza-bza)
+print(aza-cza)
+print(aza-aza2)
+print(len(k))
+print("Time to initialize a: ", t1-t0)
+print("Time to initialize b: ", t3-t2)
+print("Time to initialize and update b: ", t4-t2)
+print("Time to update a: ", t6-t5)
+print("Time to make tracer: ", t8-t7)
+print("Time to call a tracer: ", t9-t8)
+print("Second time to update a: ", t11-t10)

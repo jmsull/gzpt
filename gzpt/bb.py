@@ -31,7 +31,7 @@ def PBB(k,params,nmax,wantGrad=False):
     elif(nmax==2):
         A0,R,R1h,R1sq,R12 = params
         R2h = R1h/(np.sqrt(2)*R12) #R12 is R1h/R2h/sqrt(2) and is forced to be > 1
-        if(R12<=.99) : raise ValueError("R12 must be greater than 1 for physical values.")
+        if(R12<=.99 and R12!=0.) : raise ValueError("R12 must be greater than 1 for physical values.")
 
     def F_comp(k,R):
         """For now only Lorentzian compensation"""

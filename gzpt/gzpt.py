@@ -49,6 +49,7 @@ class hzpt:
         if(self.config):
             self.rxi = np.logspace(-1,3,4000) #matching up with the SBT in zel
             xiza = self.cleft.compute_xi_real(self.rxi)
+            assert np.all(~np.isnan(xiza))
             self.Xi_zel = loginterp(self.rxi,xiza) #callable
         else:
             warnings.warn("Configuration space models will not work if config flag is off!",
@@ -58,4 +59,5 @@ class hzpt:
         self.cleft.make_ptable(Dz=Dz)
         self.P_zel = loginterp(*self.cleft.pktable.T)
         if(self.config):
-            self.Xi_zel = loginterp(self.rxi,self.cleft.compute_xi_real(self.rxi))
+            xiza = self.cleft.compute_xi_real(self.rxi)
+            self.Xi_zel = loginterp(self.rxi,xiza)

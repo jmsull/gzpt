@@ -219,6 +219,7 @@ class AutoCorrelator(hzpt):
             b1,pparams,sparams = self.params[1],self.params[2:2+(2*self.nmax)+1],self.params[2+(2*self.nmax)+1:]
             eparams=None
         else:
+            print(self.params)
             b1,pparams,eparams = self.params[1],self.params[2:],None
             eparams,sparams=None,None
 
@@ -226,12 +227,14 @@ class AutoCorrelator(hzpt):
             #Set BB
             if(wantGrad):
                 grads=[]
+                print(pparams)
                 bb,bbgrad = XiBB(r,pparams,nmax=self.nmax,wantGrad=True)
                 xic = b1**2 * (self.hzpt.Xi_zel(r) + bb)
                 b1_grad = 2.*xic/b1
                 grads.append(np.atleast_2d(b1_grad).T)
                 grads.append(b1**2 * bbgrad)
             else:
+
                 bb = XiBB(r,pparams,nmax=self.nmax)
                 xic = b1**2 * (self.hzpt.Xi_zel(r) + bb)
 
